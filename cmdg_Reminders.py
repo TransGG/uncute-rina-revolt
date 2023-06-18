@@ -1,13 +1,6 @@
 from Uncute_Rina import *
 from import_modules import *
 
-logger = logging.getLogger("apscheduler")
-logger.setLevel(logging.WARNING)
-# remove annoying 'Scheduler started' message on sched.start()
-sched = AsyncIOScheduler(logger=logger)
-sched.start()
-
-
 def parse_date(time_string, now: datetime):
     # - "next thursday at 3pm"
     # - "tomorrow"
@@ -130,9 +123,10 @@ def parse_date(time_string, now: datetime):
 
 class Reminders(commands.GroupCog,name="reminder"):
     def __init__(self, client: Bot):
-        global RinaDB
+        global RinaDB, sched
         RinaDB = client.RinaDB
         self.client = client
+        sched = client.sched
 
     class Reminder:
         def __init__(self, client: Bot, creationtime, remindertime, userID, reminder, db_data, continued=False):

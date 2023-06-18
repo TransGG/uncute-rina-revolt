@@ -4,91 +4,24 @@ from import_modules import *
 del_separators_table = str.maketrans({" ":"", "-":"", "_":""})
 
 class TermDictionary(commands.Cog):
+
+
     def __init__(self, client: Bot):
         global RinaDB
         RinaDB = client.RinaDB
         self.client = client
 
-    # @dictionary.autocomplete('term')
-    async def dictionary_autocomplete(self, itx: discord.Interaction, current: str):
+    @commands.command()
+    async def dictionary(self, ctx: commands.Context, term: str, public: bool = False):#, source: int = 1):
+        source = 1
         def simplify(q):
             if type(q) is str:
                 return q.lower().translate(del_separators_table)
             if type(q) is list:
                 return [text.lower().translate(del_separators_table) for text in q]
-        terms = []
-        if current == '':
-            return []
-
-        # find results in custom dictionary
-        collection = RinaDB["termDictionary"]
-        query = {"synonyms": simplify(current)}
-        search = collection.find(query)
-        for item in search:
-            if simplify(current) in simplify(item["synonyms"]):
-                terms.append(item["term"])
-
-        # get list of choices from online
-        response_api = requests.get(f'https://en.pronouns.page/api/terms/search/{current}').text
-        data = json.loads(response_api)
-        # find exact results online
-        if len(data) != 0:
-            for item in data:
-                if item['term'].split("|")[0] not in terms:
-                    if simplify(current) in simplify(item['term'].split('|')):
-                        terms.append(item['term'].split('|')[0])
-
-            # then, find whichever other terms are there (append / last) online
-            for item in data:
-                if item['term'].split("|")[0] not in terms:
-                    terms.append(item['term'].split("|")[0])
-
-        # Next to that, also add generic dictionary options if your query exactly matches that of the dictionary
-        # but only if there aren't already 7 responses; to prevent extra loading time
-        if len(terms) < 7:
-            response_api = requests.get(f'https://api.dictionaryapi.dev/api/v2/entries/en/{current}').text
-            data = json.loads(response_api)
-            if type(data) is not dict:
-                for result in data:
-                    if result["word"].capitalize() not in terms:
-                        terms.append(result["word"].capitalize())
-        # same for Urban Dictionary, searching only if there are no results for the others
-        if len(terms) < 1:
-            response_api = requests.get(f'https://api.urbandictionary.com/v0/define?term={current}').text
-            data = json.loads(response_api)['list']
-            for result in data:
-                if result["word"].capitalize() + " ([from UD])" not in terms:
-                    terms.append(result["word"].capitalize() + " ([from UD])")
-
-        # limit choices to the first 7
-        terms = terms[:7]
-
-        return [
-            app_commands.Choice(name=term, value=term.replace(" ([from UD])", ""))
-            for term in terms
-        ]
-
-    @app_commands.command(name="dictionary",description="Look for the definition of a trans-related term!")
-    @app_commands.describe(term="This is your search query. What do you want to look for?",
-                           source="Where do you want to search? Online? Custom Dictionary? Or just leave it default..",
-                           public="Do you want to share the search results with the rest of the channel? (True=yes)")
-    @app_commands.choices(source=[
-            discord.app_commands.Choice(name='Search from whichever has an answer', value=1),
-            discord.app_commands.Choice(name='Search from custom dictionary', value=2),
-            discord.app_commands.Choice(name='Search from en.pronouns.page', value=4),
-            discord.app_commands.Choice(name='Search from dictionaryapi.dev', value=6),
-            discord.app_commands.Choice(name='Search from urbandictionary.com', value=8),
-    ])
-    @app_commands.autocomplete(term=dictionary_autocomplete)
-    async def dictionary(self, itx: discord.Interaction, term: str, public: bool = False, source: int = 1):
-        def simplify(q):
-            if type(q) is str:
-                return q.lower().translate(del_separators_table)
-            if type(q) is list:
-                return [text.lower().translate(del_separators_table) for text in q]
-        # test if mode has been left unset or if mode has been selected: decides whether or not to move to the online API search or not.
         result_str = ""  # to make my IDE happy. Will still crash on discord if it actually tries to send it tho: 'Empty message'
         results: list[any]
+        # Odd numbers will move to the next odd number if no result is found -> passing all sources until the end. Otherwise, return ""
         if source == 1 or source == 2:
             collection = RinaDB["termDictionary"]
             query = {"synonyms": term.lower()}
@@ -121,7 +54,7 @@ class TermDictionary(commands.Cog):
             if len(result_str) > 1999:
                 result_str = f"Your search ({term}) returned too many results (discord has a 2000-character message length D:). (Please ask staff to fix this (synonyms and stuff).)"
                 # debug(f"{itx.user.name} ({itx.user.id})'s dictionary search ('{term}') gave back a result that was larger than 2000 characters! Results:'\n"+', '.join(results),color="red")
-                await log_to_guild(self.client, itx.guild,f":warning: **!! Warning:** {itx.user.name} ({itx.user.id})'s dictionary search ('{term}') gave back a result that was larger than 2000 characters!'")
+                await log_to_guild(self.client, ctx.server, f":warning: **!! Warning:** {ctx.author.name} ({ctx.author.id})'s dictionary search ('{term}') gave back a result that was larger than 2000 characters!'")
         if source == 3 or source == 4:
             response_api = requests.get(f'https://en.pronouns.page/api/terms/search/{term.lower().replace("/"," ").replace("%"," ")}').text
             data = json.loads(response_api)
@@ -170,7 +103,7 @@ class TermDictionary(commands.Cog):
                         result_str = f"Your search ('{term}') returned a too-long result! (discord has a 2000-character message length D:). To still let you get better results, I've rewritten the terms so you might be able to look for a more specific one:"
                         for item in results:
                             result_str += f"> {', '.join(item['term'].split('|'))}\n"
-                    await itx.response.send_message(result_str,ephemeral=not public, suppress_embeds=True)
+                    await ctx.channel.send(result_str)
                     return
 
                 # if search doesn't exactly match with a result / synonym
@@ -225,7 +158,6 @@ class TermDictionary(commands.Cog):
                     result_str = f"I didn't find any results for '{term}' on dictionaryapi.dev!"
                     public = False
             else:
-                await itx.response.defer(ephemeral=True)
                 for result in data:
                     meanings = []
                     synonyms = []
@@ -422,7 +354,6 @@ class TermDictionary(commands.Cog):
                     await itx.edit_original_response(view=None)
                 return
         if source == 7 or source == 8:
-            await itx.response.defer(ephemeral=True)
             response_api = requests.get(f'https://api.urbandictionary.com/v0/define?term={term.lower()}').text
             # who decided to put the output into a dictionary with a list named 'list'? {"list":[{},{},{}]}
             data = json.loads(response_api)['list']
@@ -501,10 +432,11 @@ class TermDictionary(commands.Cog):
                 return
 
         assert len(result_str) > 0
-        if itx.response.is_done():
-            await itx.followup.send(result_str, ephemeral=not public, suppress_embeds=True)
-        else:
-            await itx.response.send_message(result_str, ephemeral=not public, suppress_embeds=True)
+        await ctx.channel.send(result_str)
+        # if itx.response.is_done():
+        #     await itx.followup.send(result_str, ephemeral=not public, suppress_embeds=True)
+        # else:
+        #     await itx.response.send_message(result_str, ephemeral=not public, suppress_embeds=True)
 
     admin = app_commands.Group(name='dictionary_staff', description='Change custom entries in the dictionary')
 
@@ -631,6 +563,6 @@ class TermDictionary(commands.Cog):
             await log_to_guild(self.client, itx.guild, f"{itx.user.nick or itx.user.name} ({itx.user.id}) removed synonym '{synonym}' the dictionary definition of '{term}'")
             await itx.response.send_message("Successfully removed synonym", ephemeral=True)
 
-async def setup(client):
-    await client.add_cog(TermDictionary(client))
+def setup(client: Bot):
+    client.add_cog(TermDictionary(client))
     # await client.add_cog(DictionaryGroup(client))

@@ -1,74 +1,131 @@
 from Uncute_Rina import *
 
-def is_verified(itx: discord.Interaction):
+reaction_messages = {}
+
+class PagedMessage():
+    def __init__(self, client: Bot, ctx: commands.Context, pages, timeout = None):
+        self.client = client
+        self.ctx = ctx
+        self.pages = pages
+        self.page = 0
+        self.timeout = timeout
+        self.message: revolt.Message
+    
+    async def on_timeout(self):
+        del reaction_messages[self.message.id]
+        await self.message.remove_all_reactions()
+
+    async def send(self):
+        self.message = await self.ctx.channel.send(embed=self.pages[self.page])
+        self.message.add_reaction("◀️")
+        self.message.add_reaction("▶️")
+        if self.timeout:
+            self.client.sched.add_job(self.on_timeout, "date", run_date=datetime.now()+timedelta(minutes=self.timeout))
+
+class PageHandling(commands.Cog):
+    def __init__(self, client: Bot):
+        client.on_message_events.append(self.on_message_page)
+        self.client = client
+
+    # async def on_reaction_add()
+
+    @commands.command()
+    async def ping(self, ctx: commands.Context):
+        if is_verified(ctx):
+            await ctx.send("pong")
+
+    async def on_message_page(self, message: revolt.Message):
+        print(message.content, "hii")
+
+
+def setup(client: Bot):
+    client.add_cog(PageHandling(client))
+
+            
+
+
+
+def is_verified(ctx: commands.Context):
     """
     Check if someone is verified
 
     ### Parameters:
-    itx: :class:`discord.Interaction`
-        interaction with itx.guild.roles and itx.user.roles
+    ctx: :class:`commands.Context`
+        context with ctx.server.roles and ctx.author.roles
     
     ### Returns
     `bool` is_verified
     """
-    if itx.guild is None:
+    if ctx.server_id is None:
         return False
-    roles = [discord.utils.find(lambda r: r.name.lower() == 'verified', itx.guild.roles)]
-    user_role_ids = [role.id for role in itx.user.roles]
-    role_ids = [959748411844874240,  # Transplace: Verified
-                1109907941454258257] # Transonance: Verified
-    return len(set(roles).intersection(itx.user.roles)) > 0 or is_staff(itx) or len(set(role_ids).intersection(user_role_ids)) > 0
+    roles = []
+    for role in ctx.server.roles:
+        if role.name.lower() == "verified":
+            roles.append(role)
+    user_role_ids = [role.id for role in ctx.author.roles]
+    role_ids = ["959748411844874240",  # Transplace: Verified
+                "1109907941454258257"] # Transonance: Verified
+    return len(set(roles).intersection(ctx.author.roles)) > 0 or is_staff(ctx) or len(set(role_ids).intersection(user_role_ids)) > 0
 
 # def isVerifier(itx: discord.Interaction):
 #     roles = [discord.utils.find(lambda r: r.name == 'Verifier', itx.guild.roles)]
 #     return len(set(roles).intersection(itx.user.roles)) > 0 or is_admin(itx)
 
-def is_staff(itx: discord.Interaction):
+def is_staff(ctx: commands.Context):
     """
     Check if someone is staff
 
     ### Parameters:
-    itx: :class:`discord.Interaction`
-        interaction with itx.guild.roles and itx.user.roles
+    ctx: :class:`commands.Context`
+        context with ctx.server.roles and itx.author.roles
     
     ### Returns
     `bool` is_staff
     """
-    if itx.guild is None:
+    if ctx.server_id is None:
         return False
-    # case sensitive lol
-    roles = [discord.utils.find(lambda r: 'staff'     in r.name.lower(), itx.guild.roles),
-             discord.utils.find(lambda r: 'moderator' in r.name.lower(), itx.guild.roles),
-             discord.utils.find(lambda r: 'trial mod' in r.name.lower(), itx.guild.roles),
-             discord.utils.find(lambda r: 'sr. mod'   in r.name.lower(), itx.guild.roles),
-             discord.utils.find(lambda r: 'chat mod'  in r.name.lower(), itx.guild.roles)]
-    user_role_ids = [role.id for role in itx.user.roles]
-    role_ids = [1069398630944997486,981735650971775077, #TransPlace: trial ; moderator
-                1108771208931049544] # Transonance: Staff
-    return len(set(roles).intersection(itx.user.roles)) > 0 or is_admin(itx) or len(set(role_ids).intersection(user_role_ids)) > 0
+    
+    roles = []
+    for role in ctx.server.roles:
+        for name_match in ["staff", "moderator", "trial mod", "sr. mod", "chat mod"]:
+            if role.name.lower() in name_match:
+                roles.append(role)
 
-def is_admin(itx: discord.Interaction):
+    user_role_ids = [role.id for role in ctx.author.roles]
+    role_ids = ["1069398630944997486","981735650971775077", #TransPlace: trial ; moderator
+                "1108771208931049544"] # Transonance: Staff
+    return len(set(roles).intersection(ctx.author.roles)) > 0 or is_admin(ctx) or len(set(role_ids).intersection(user_role_ids)) > 0
+
+def is_admin(ctx: commands.Context):
     """
     Check if someone is an admin
 
     ### Parameters:
-    itx: :class:`discord.Interaction`
+    ctx: :class:`discord.Interaction`
         interaction with itx.guild.roles and itx.user
     
     ### Returns
     `bool` is_admin
     """
-    if itx.guild is None:
+    if ctx.server_id is None:
         return False
-    roles = [discord.utils.find(lambda r: r.name.lower() == 'full admin', itx.guild.roles),
-             discord.utils.find(lambda r: r.name.lower() == 'head staff', itx.guild.roles),
-             discord.utils.find(lambda r: r.name.lower() == 'admins'    , itx.guild.roles),
-             discord.utils.find(lambda r: r.name.lower() == 'admin'     , itx.guild.roles),
-             discord.utils.find(lambda r: r.name.lower() == 'owner'     , itx.guild.roles)]
-    user_role_ids = [role.id for role in itx.user.roles]
-    role_ids = [981735525784358962]  # TransPlace: Admin
-    has_admin = itx.permissions.administrator
-    return has_admin or len(set(roles).intersection(itx.user.roles)) > 0 or itx.user.id == 262913789375021056 or len(set(role_ids).intersection(user_role_ids)) > 0
+    if type(ctx.author) is revolt.Member:   
+        ctx.author: revolt.Member = ctx.author
+    else:
+        return False
+    roles = []
+    for role in ctx.server.roles:
+        for name_match in ['full admin', 'head staff', 'admins', 'admin', 'owner']:
+            if role.name.lower() in name_match:
+                roles.append(role)
+    user_role_ids = [role.id for role in ctx.author.roles]
+    role_ids = ["981735525784358962"]  # TransPlace: Admin
+    member_perms = ctx.author.get_channel_permissions(ctx.channel)
+    has_admin = member_perms.manage_server and member_perms.manage_channel
+    return has_admin or \
+           len(set(roles).intersection(ctx.author.roles)) > 0 or \
+           ctx.author.id == "01H34JM6Y9GYG5E26FX5Q2P8PW"      or \
+           len(set(role_ids).intersection(user_role_ids)) > 0
 
 def debug(text="", color="default", add_time=True, end="\n", advanced=False):
     """
@@ -174,33 +231,16 @@ def debug(text="", color="default", add_time=True, end="\n", advanced=False):
         end = end[:-2]
     print(f"{time}{text}{colors['default']}"+end.replace('\r','\033[F'))
 
-#unused
-def thousand_space(number, interval = 3, separator = " "):
+async def log_to_guild(client: Bot, guild: revolt.Server, msg: str):
     """
-    Just use `f"{number:,}"` :|
-    """
-    decimals = []
-    if type(number) is int or type(number) is float:
-        number = str(number)
-    if "." in number:
-        "100.0.0"
-        number, *decimals = number.split(".")
-    for x in range(len(number)-interval,0,0-interval):
-        number = number[:x]+separator+number[x:]
-    decimals = ''.join(['.'+x for x in decimals])
-    return number+decimals
-
-
-async def log_to_guild(client: Bot, guild: discord.Guild, msg: str):
-    """
-    Log a message to a guild's logging channel (vcLog)
+    Log a message to a server's logging channel (vcLog)
 
     ### Parameters
     --------------
     client: :class:`Uncute_Rina.Bot`
         The bot class with `client.get_command_info()`
-    guild: :class:`discord.Guild`
-        Guild of the logging channel
+    guild: :class:`revolt.Server`
+        Server of the logging channel
     msg: :class:`str`
         Message you want to send to this logging channel
     """
@@ -208,7 +248,7 @@ async def log_to_guild(client: Bot, guild: discord.Guild, msg: str):
         log_channel_id = await client.get_guild_info(guild, "vcLog")
     except KeyError:
         msg = "__**THIS MESSAGE CAUSES THE CRASH BELOW**__\n"+msg
-        await client.logChannel.send(content=msg, allowed_mentions=discord.AllowedMentions.none())
+        await client.logChannel.send(msg)
         raise
     log_channel = guild.get_channel(log_channel_id)
     if log_channel is None:
@@ -216,28 +256,31 @@ async def log_to_guild(client: Bot, guild: discord.Guild, msg: str):
               "    guild: "+repr(guild)+"\n"
               "    log_channel_id: "+str(log_channel_id),color="orange")
         return
-    return await log_channel.send(content=msg, allowed_mentions=discord.AllowedMentions.none())
+    return await log_channel.send(msg)
 
-async def executed_in_dms(itx: discord.Interaction = None, 
-                          message: discord.Message = None,
-                          channel: discord.DMChannel    | discord.GroupChannel | discord.TextChannel |
-                                   discord.StageChannel | discord.VoiceChannel | discord.Thread      = None):
+async def executed_in_dms(ctx: commands.Context = None, 
+                          message: revolt.Message = None,
+                          channel: revolt.ServerChannel= None):
     """
     Make a command guild-only by telling people in DMs that they can't use the command
 
     ### Parameters:
-    itx: :class:`discord.Interaction` (used for interactions)
-        The interaction to check if it was used in a server - and to reply to
+    ctx: :class:`commands.context`
+        The context to check if it was used in a server - and to reply to
     message: :class:`discord.Message` (used for events)
         The message to check if it was used in a server
-    channel: DMChannel or Guild channel
+    channel: :class:`revolt.ServerChannel`
         The channel to check if it was used in a server
 
     ### Returns:
     :class:`bool` if command was executed in DMs (for 'if ... : continue')
     """
-    assert (itx == None) ^ (message == None) ^ (channel == None), ValueError("Give an itx, message, or channel, not multiple!") # itx xor message is None (not both)
-    id_object = next(i for i in [itx, message, channel] if i is not None)
-
-    if id_object.guild is None:
-        await id_object.response.send_message("This command is unavailable in DMs", ephemeral=True)
+    assert (ctx == None) ^ (message == None) ^ (channel == None), ValueError("Give an itx, message, or channel, not multiple!")
+    id_object = next(i for i in [ctx, message, channel] if i is not None)
+    if id_object.server_id is None:
+        if type(id_object) == revolt.Message:
+            await id_object.channel.send("This command is unavailable in DMs", ephemeral=True)
+            return True
+        await id_object.send("This command is unavailable in DMs", ephemeral=True)
+        return True
+    return False

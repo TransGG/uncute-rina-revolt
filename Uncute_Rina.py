@@ -2,8 +2,9 @@ if __name__ == '__main__':
     print("Program started")
 from import_modules import *
 
+
 if __name__ != '__main__':
-    class Bot(commands.Bot):
+    class  Bot(revolt.Client):
         pass
 else:
     debug(f"[#+   ]: Loading api keys..." + " " * 30, color="light_blue", end='\r')
@@ -12,7 +13,7 @@ else:
         with open("api_keys.json","r") as f:
             api_keys = json.loads(f.read())
         tokens = {}
-        TOKEN = api_keys['Discord']
+        TOKEN = api_keys['Revolt']
         for key in ['MongoDB', 'Open Exchange Rates', 'Wolfram Alpha']:
             # copy every other key to new dictionary to check if every key is in the file.
             tokens[key] = api_keys[key]
@@ -20,12 +21,13 @@ else:
         raise SyntaxError("Invalid JSON file. Please ensure it has correct formatting.").with_traceback(None)
     except KeyError as ex:
         raise KeyError("Missing API key for: " + str(ex)).with_traceback(None)
-    # mongoURI = open("mongo.txt","r").read()
+
     debug(f"[##+  ]: Loading database clusters..." + " " * 30, color="light_blue", end='\r')
     cluster = MongoClient(tokens['MongoDB'])
     RinaDB = cluster["Rina"]
     cluster = motor.AsyncIOMotorClient(tokens['MongoDB'])
     asyncRinaDB = cluster["Rina"]
+
     appcommanderror_cooldown = 0
     debug(f"[###+ ]: Loading version..." + " " * 30, color="light_blue", end='\r')
     # Dependencies:
@@ -43,15 +45,15 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "1.2.0.7".split(".")
+    fileVersion = "0.0.4.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
     except FileNotFoundError:
         version = ["0"]*len(fileVersion)
     # if testing, which environment are you in?
-    # 1: private dev server; 2: public dev server (TransPlace [Copy])
-    testing_environment = 2
+    # 1: private dev server; 2: public dev server (TransPlace [Copy]), 3: revolt server
+    testing_environment = 3
     for v in range(len(fileVersion)):
         if int(fileVersion[v]) > int(version[v]):
             version = fileVersion + ["0"]
@@ -63,25 +65,139 @@ else:
         f.write(f"{version}")
     debug(f"[#### ]: Loading Bot" + " " * 30, color="light_blue", end='\r')
 
-    intents = discord.Intents.default()
-    intents.members = True #apparently this needs to be additionally defined cause it's not included in Intents.default()?
-    intents.message_content = True #apparently it turned off my default intent or something: otherwise i can't send 1984, ofc.
-    #setup default discord bot client settings, permissions, slash commands, and file paths
+    # intents = discord.Intents.default()
+    # intents.members = True #apparently this needs to be additionally defined cause it's not included in Intents.default()?
+    # intents.message_content = True #apparently it turned off my default intent or something: otherwise i can't send 1984, ofc.
+    # #setup default discord bot client settings, permissions, slash commands, and file paths
 
-
-    class Bot(commands.Bot):
+# interactions
+# mentions
+# reactions 
+# remove_all_reactions 
+# remove_reaction 
+# replies 
+# reply 
+# reply_ids 
+# server 
+# server_id 
+# state 
+    from revolt.ext import commands
+    class Bot(commands.CommandsClient):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
         commandList: list[discord.app_commands.AppCommand]
-        logChannel: discord.TextChannel
+        logChannel: revolt.TextChannel
         api_tokens = tokens
         startup_time = datetime.now() # used in /version
         RinaDB = RinaDB
         asyncRinaDB = asyncRinaDB
-        staff_server_id = 981730502987898960
-        bot_owner: discord.User # for AllowedMentions in on_appcommand_error()
+        # staff_server_id = 981730502987898960
+        bot_owner: revolt.User # for AllowedMentions in on_appcommand_error()
+
+        # "logging.WARNING" to remove annoying 'Scheduler started' message on sched.start()
+        sched = AsyncIOScheduler(logger=logging.getLogger("apscheduler").setLevel(logging.WARNING))
+        sched.start()
+
+        async def get_prefix(self, message: revolt.Message):
+            return ["!", self.user.mention+" "]
+        
+        on_message_events = []
+        async def _on_message(self, message):
+            for i in self.on_message_events:
+                await i(message)
+
+        async def process_commands(self, message: revolt.Message):
+            """Processes commands, if you overwrite `Client.on_message` you should manually call this function inside the event.
+
+            Parameters
+            -----------
+            message: :class:`Message`
+                The message to process commands on
+
+            Returns
+            --------
+            Any
+                The return of the command, if any
+            """
+            content = message.content
+
+            prefixes = await self.get_prefix(message)
+
+            if isinstance(prefixes, str):
+                prefixes = [prefixes]
+
+            #edited from CommandsClient class
+            has_prefix = True
+            for prefix in prefixes:
+                if content.startswith(prefix):
+                    content = content[len(prefix):]
+                    break
+            else:
+                # return
+                has_prefix = False
+
+            if has_prefix:
+                if not content:
+                    return
+
+                view = self.get_view(message)(content)
+
+                try:
+                    command_name = view.get_next_word()
+                except StopIteration:
+                    return
+
+                context_cls = self.get_context(message)
+
+                try:
+                    command = self.get_command(command_name)
+                except KeyError:
+                    context = context_cls(None, command_name, view, message, self)
+                    return self.dispatch("command_error", context, commands.errors.CommandNotFound(command_name))
+
+                context = context_cls(command, command_name, view, message, self)
+
+                try:
+                    self.dispatch("command", context)
+
+                    if not await self.bot_check(context):
+                        raise commands.errors.CheckError(f"the global check for the command failed")
+
+                    if not await context.can_run():
+                        raise commands.errors.CheckError(f"the check(s) for the command failed")
+
+                    output = await context.invoke()
+                    self.dispatch("after_command_invoke", context, output)
+
+                    return output
+                except Exception as e:
+                    await command._error_handler(command.cog or self, context, e)
+                    self.dispatch("command_error", context, e)
+
+            else:
+                await self._on_message(message)
+
+        on_message = process_commands
+
+        async def on_ready(self):
+            debug(f"[###### ]: Started bot"+ " "*30,color="green")
+            debug(f"[######+]: Loading server settings"+ " "*30,color="light_blue",end='\r')
+            try:
+                self.logChannel = await self.fetch_channel("01H33X24TYG9S6GFXXZVPH3JPH")
+            except (revolt.errors.HTTPError, revolt.errors.Forbidden, Exception): # "Exception" raised in revolt.channel.channel_factory()
+                if testing_environment == 3:
+                    self.logChannel = await self.fetch_channel("01H35AM97PZW3166FDGK4FAN39")
+            self.bot_owner = self.get_user("01H34JM6Y9GYG5E26FX5Q2P8PW") # for mentioning me on crashes
+            debug(f"[#######]: Loaded server settings"+" "*30,color="green")
+
+            debug(f"[-------] Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
+            await self.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
+        
+
+    
         def get_command_mention(self, command_string: str):
+            return self.get_prefix(None)+command_string
             """
             Turn a string (/reminders remindme) into a command mention (</reminders remindme:43783756372647832>)
 
@@ -118,19 +234,19 @@ else:
                                     return subcmdgroup.mention
                                     # return f"</{command.name} {subgroup.name} {subcmdgroup.name}:{command.id}>"
             return "/"+command_string
-
-        async def get_guild_info(self, guild_id: discord.Guild | int, *args: str, log: list[discord.Interaction | str] | None = None):
+        
+        async def get_guild_info(self, guild_id: revolt.Server | str, *args: str, log: list[revolt.Messageable | str] | None = None):
             """
             Get a guild's server settings (from /editguildinfo, in cmd_customvcs)
 
             ### Arguments:
             --------------
-            guild_id: :class:`discord.Guild` or :class:`int`
-                guild or id from which you want to get the guild info / settings
+            guild_id: :class:`revolt.Server` or :class:`str`
+                server or id from which you want to get the guild info / settings
             *args: :class:`str`
                 settings (or multiple) that you want to fetch
-            log (optional): :class:`list[discord.Interaction, str]`
-                A list of [itx, error_message], and will reply this error message to the given interaction if there's a KeyError.
+            log (optional): :class:`list[Messageable, str]` (note: :class:`commands.Context` is a :class:`Messageable`)
+                A list of [Messageable, error_message], and will reply this error message to the given channel if there's a KeyError.
 
             ### Returns:
             ------------
@@ -138,11 +254,11 @@ else:
 
             ### Raises:
             -----------
-            `KeyError` if guild is None, does not have data, or not the requested data.
+            `KeyError` if server is None, does not have data, or not the requested data.
             """
             if guild_id is None:
                 raise KeyError(f"'{guild_id}' is not a valid guild or id!")
-            if isinstance(guild_id, discord.Guild):
+            if isinstance(guild_id, revolt.Server):
                 guild_id = guild_id.id
             try:
                 collection = self.RinaDB["guildInfo"]
@@ -161,117 +277,91 @@ else:
                         unavailable.append(key)
                 if unavailable:
                     raise KeyError("Guild " + str(guild_id) + " does not have data for: " + ', '.join(unavailable))
-                if len(output) == 1: # prevent outputting [1] (one item as list)
+                if len(output) == 1: # prevent outputting [1] (one item as list) (doesn't unfold)
                     return output[0]
                 return output
             except KeyError:
-                if log is None:
-                    raise
-                await log[0].response.send_message(log[1], ephemeral=True)
+                if log is not None:
+                    await log[0].send(log[1], ephemeral=True)
                 raise
+
+
+
+        async def on_message_kill_test(self, message):
+            # kill switch, see other modules for other on_message events.
+            if message.author.id == self.bot_owner.id:
+                if message.content == ":kill now please stop":
+                    sys.exit(0)
+
+        @commands.command()
+        async def version(self, ctx: commands.Context):
+            public = is_staff(ctx)
+            # get most recently pushed's version
+            latest_rina = requests.get("https://raw.githubusercontent.com/TransPlace-Devs/uncute-rina-revolt/main/Uncute_Rina.py").text
+            latest_version = latest_rina.split("fileVersion = \"", 1)[1].split("\".split(\".\")", 1)[0]
+            for i in range(len(latest_version.split("."))):
+                if int(latest_version.split(".")[i]) > int(version.split(".")[i]):
+                    await ctx.send(f"Bot is currently running on v{version} (latest: v{latest_version})\n(started at {self.startup_time.strftime('%Y-%m-%dT%H:%M:%S.%f')})")
+                    return
+            else:
+                await ctx.send(f"Bot is currently running on v{version} (latest)\n(started at {self.startup_time.strftime('%Y-%m-%dT%H:%M:%S.%f')})")
+
 
     debug(f"[#      ]: Loaded bot" + " " * 30, color="green")
     debug(f"[#+     ]: Starting Bot...", color="light_blue", end='\r')
-    discord.VoiceClient.warn_nacl = False   
-    client = Bot(
-            intents=intents,
-            command_prefix="/!\"@:\\#", #unnecessary, but needs to be set so.. uh.. yeah. Unnecessary terminal warnings avoided.
-            case_insensitive=True,
-            activity=discord.Game(name="with slash (/) commands!"),
-            allowed_mentions=discord.AllowedMentions(everyone=False)
-    )
 
-    # Client events begin
-    @client.event
-    async def on_ready():
-        debug(f"[#######] Logged in as {client.user}, in version {version} (in {datetime.now()-program_start})",color="green")
-        await client.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
-        
-    @client.event
-    async def setup_hook():
-        start = datetime.now()
+    async def main(token):
+        async with revolt.utils.client_session() as session:
+            start = datetime.now()
+            client = Bot(session, token)
+            client.on_message_events.append(client.on_message_kill_test)
+            debug(f"[##     ]: Started Bot"+" "*30,color="green")
 
-        ## cache server settings into client, to prevent having to load settings for every extension
-        debug(f"[##     ]: Started Bot"+" "*30,color="green")
-        ## activate the extensions/programs/code for slash commands
-        extensions = [
-            "cmd_addons",
-            "cmd_customvcs",
-            "cmd_emojistats",
-            "cmd_getmemberdata",
-            "cmd_pronouns",
-            "cmd_qotw",
-            "cmd_tags",
-            "cmd_termdictionary",
-            "cmd_todolist",
-            "cmd_toneindicator",
-            "cmdg_Reminders",
-            "cmdg_Starboard",
-            # "cmdg_Table", # Disabled: it was never used. Will keep file in case of future projects
-        ]
+            extensions = [
+                # "cmd_addons",
+                # "cmd_customvcs",
+                # "cmd_emojistats",
+                # "cmd_getmemberdata",
+                # "cmd_pronouns",
+                # "cmd_qotw",
+                # "cmd_tags",
+                "cmd_termdictionary",
+                # "cmd_todolist",
+                # "cmd_toneindicator",
+                # "cmdg_Reminders",
+                # "cmdg_Starboard",
+                "utils",
+            ]
+            for extID in range(len(extensions)):
+                debug(f"[{'#'*extID}+{' '*(len(extensions)-extID-1)}]: Loading {extensions[extID]}"+" "*15,color="light_blue",end='\r')
+                client.load_extension(extensions[extID])
 
-        for extID in range(len(extensions)):
-            debug(f"[{'#'*extID}+{' '*(len(extensions)-extID-1)}]: Loading {extensions[extID]}"+" "*15,color="light_blue",end='\r')
-            await client.load_extension(extensions[extID])
-        debug(f"[###    ]: Loaded extensions successfully (in {datetime.now()-start})",color="green")
+            debug(f"[###    ]: Loaded extensions successfully (in {datetime.now()-start})",color="green")
+            # debug(f"[###+   ]: Restarting ongoing reminders"+" "*30,color="light_blue",end="\r")
+            # collection = RinaDB["reminders"]
+            # query = {}
+            # db_data = collection.find(query)
+            # for user in db_data:
+            #     try:
+            #         for reminder in user['reminders']:
+            #             creationtime = datetime.fromtimestamp(reminder['creationtime'])#, timezone.utc)
+            #             remindertime = datetime.fromtimestamp(reminder['remindertime'])#, timezone.utc)
+            #             Reminders.Reminder(client, creationtime, remindertime, user['userID'], reminder['reminder'], user, continued=True)
+            #     except KeyError:
+            #         pass
+            debug(f"[####   ]: Finished setting up reminders"+" "*30,color="yellow")
+            # debug(f"[####+  ]: Caching bot's command names and their ids",color="light_blue",end='\r')
+            # commandList = await client.tree.fetch_commands()
+            # client.commandList = commandList
+            debug(f"[#####  ]: Cached bot's command names and their ids"+" "*30,color="yellow")
+            debug(f"[#####+ ]: Starting..."+" "*30,color="light_blue",end='\r')
+            await client.start()
 
-        debug(f"[###+   ]: Loading server settings"+ " "*30,color="light_blue",end='\r')
-        try:
-            client.logChannel = await client.fetch_channel(988118678962860032)
-        except (discord.errors.InvalidData, discord.errors.HTTPException, discord.errors.NotFound, discord.errors.Forbidden): #one of these
-            if testing_environment == 1:
-                client.logChannel = await client.fetch_channel(986304081234624554)
-            else:
-                client.logChannel = await client.fetch_channel(1062396920187863111)
-        client.bot_owner = await client.fetch_user(262913789375021056)#(await client.application_info()).owner
+    asyncio.run(main(TOKEN))
 
-        debug(f"[####   ]: Loaded server settings"+" "*30,color="green")
-        debug(f"[####+  ]: Restarting ongoing reminders"+" "*30,color="light_blue",end="\r")
-        collection = RinaDB["reminders"]
-        query = {}
-        db_data = collection.find(query)
-        for user in db_data:
-            try:
-                for reminder in user['reminders']:
-                    creationtime = datetime.fromtimestamp(reminder['creationtime'])#, timezone.utc)
-                    remindertime = datetime.fromtimestamp(reminder['remindertime'])#, timezone.utc)
-                    Reminders.Reminder(client, creationtime, remindertime, user['userID'], reminder['reminder'], user, continued=True)
-            except KeyError:
-                pass
-        debug(f"[#####  ]: Finished setting up reminders"+" "*30,color="green")
-        debug(f"[#####+ ]: Caching bot's command names and their ids",color="light_blue",end='\r')
-        commandList = await client.tree.fetch_commands()
-        client.commandList = commandList
-        debug(f"[###### ]: Cached bot's command names and their ids"+" "*30,color="green")
-        debug(f"[######+]: Starting..."+" "*30,color="light_blue",end='\r')
-
-        # debug(f"[{'#'*extID}{' '*(len(extensions)-extID-1)} ]: Syncing command tree"+ " "*30,color="light_blue",end='\r')
-        # await client.tree.sync()
-
-    @client.event
-    async def on_message(message):
-        # kill switch, see cmd_addons for other on_message events.
-        if message.author.id == client.bot_owner.id:
-            if message.content == ":kill now please stop":
-                sys.exit(0)
+    raise NotImplementedError("End of converted code reached!")
 
     # Bot commands begin
-
-    @client.tree.command(name="version",description="Get bot version")
-    async def botVersion(itx: discord.Interaction):
-        public = is_staff(itx)
-        # get most recently pushed's version
-        latest_rina = requests.get("https://raw.githubusercontent.com/TransPlace-Devs/uncute-rina/main/Uncute_Rina.py").text
-        latest_version = latest_rina.split("fileVersion = \"", 1)[1].split("\".split(\".\")", 1)[0]
-        for i in range(len(latest_version.split("."))):
-            if int(latest_version.split(".")[i]) > int(version.split(".")[i]):
-                await itx.response.send_message(f"Bot is currently running on v{version} (latest: v{latest_version})\n(started at {client.startup_time.strftime('%Y-%m-%dT%H:%M:%S.%f')})",
-                                                ephemeral=not public)
-                return
-        else:
-            await itx.response.send_message(f"Bot is currently running on v{version} (latest)\n(started at {client.startup_time.strftime('%Y-%m-%dT%H:%M:%S.%f')})",
-                                            ephemeral=not public)
-
     @client.tree.command(name="update",description="Update slash-commands")
     async def updateCmds(itx: discord.Interaction):
         if not is_staff(itx):
@@ -387,6 +477,10 @@ else:
         client.run(TOKEN, log_level=logging.WARNING)
     except SystemExit:
         print("Exited the program forcefully using the kill switch")
+
+
+
+
 
 # todo:
 # - Translator
