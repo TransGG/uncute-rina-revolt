@@ -24,11 +24,11 @@ else:
 
     debug(f"[##+  ]: Loading database clusters..." + " " * 30, color="light_blue", end='\r')
     cluster = MongoClient(tokens['MongoDB'])
-    RinaDB = cluster["Rina"]
+    RinaDB = cluster["RinaRevolt"]
     cluster = motor.AsyncIOMotorClient(tokens['MongoDB'])
-    asyncRinaDB = cluster["Rina"]
+    asyncRinaDB = cluster["RinaRevolt"]
 
-    appcommanderror_cooldown = 0
+    commanderror_cooldown = 0
     debug(f"[###+ ]: Loading version..." + " " * 30, color="light_blue", end='\r')
     # Dependencies:
     #   server members intent,
@@ -45,7 +45,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.0.4.0".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.0.4.1".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -99,103 +99,10 @@ else:
         sched = AsyncIOScheduler(logger=logging.getLogger("apscheduler").setLevel(logging.WARNING))
         sched.start()
 
-        async def get_prefix(self, message: revolt.Message):
-            return ["!", self.user.mention+" "]
-        
-        on_message_events = []
-        async def _on_message(self, message):
-            for i in self.on_message_events:
-                await i(message)
 
-        async def process_commands(self, message: revolt.Message):
-            """Processes commands, if you overwrite `Client.on_message` you should manually call this function inside the event.
+        # Class functions
 
-            Parameters
-            -----------
-            message: :class:`Message`
-                The message to process commands on
 
-            Returns
-            --------
-            Any
-                The return of the command, if any
-            """
-            content = message.content
-
-            prefixes = await self.get_prefix(message)
-
-            if isinstance(prefixes, str):
-                prefixes = [prefixes]
-
-            #edited from CommandsClient class
-            has_prefix = True
-            for prefix in prefixes:
-                if content.startswith(prefix):
-                    content = content[len(prefix):]
-                    break
-            else:
-                # return
-                has_prefix = False
-
-            if has_prefix:
-                if not content:
-                    return
-
-                view = self.get_view(message)(content)
-
-                try:
-                    command_name = view.get_next_word()
-                except StopIteration:
-                    return
-
-                context_cls = self.get_context(message)
-
-                try:
-                    command = self.get_command(command_name)
-                except KeyError:
-                    context = context_cls(None, command_name, view, message, self)
-                    return self.dispatch("command_error", context, commands.errors.CommandNotFound(command_name))
-
-                context = context_cls(command, command_name, view, message, self)
-
-                try:
-                    self.dispatch("command", context)
-
-                    if not await self.bot_check(context):
-                        raise commands.errors.CheckError(f"the global check for the command failed")
-
-                    if not await context.can_run():
-                        raise commands.errors.CheckError(f"the check(s) for the command failed")
-
-                    output = await context.invoke()
-                    self.dispatch("after_command_invoke", context, output)
-
-                    return output
-                except Exception as e:
-                    await command._error_handler(command.cog or self, context, e)
-                    self.dispatch("command_error", context, e)
-
-            else:
-                await self._on_message(message)
-
-        on_message = process_commands
-
-        async def on_ready(self):
-            debug(f"[###### ]: Started bot"+ " "*30,color="green")
-            debug(f"[######+]: Loading server settings"+ " "*30,color="light_blue",end='\r')
-            try:
-                self.logChannel = await self.fetch_channel("01H33X24TYG9S6GFXXZVPH3JPH")
-            except (revolt.errors.HTTPError, revolt.errors.Forbidden, Exception): # "Exception" raised in revolt.channel.channel_factory()
-                if testing_environment == 3:
-                    self.logChannel = await self.fetch_channel("01H35AM97PZW3166FDGK4FAN39")
-            self.bot_owner = self.get_user("01H34JM6Y9GYG5E26FX5Q2P8PW") # for mentioning me on crashes
-            debug(f"[#######]: Loaded server settings"+" "*30,color="green")
-
-            debug(f"[-------] Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
-            await self.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
-        
-
-    
         def get_command_mention(self, command_string: str):
             return self.get_prefix(None)+command_string
             """
@@ -286,12 +193,95 @@ else:
                 raise
 
 
+        # Class functions end
+        # Command event overwriting
 
-        async def on_message_kill_test(self, message):
-            # kill switch, see other modules for other on_message events.
-            if message.author.id == self.bot_owner.id:
-                if message.content == ":kill now please stop":
-                    sys.exit(0)
+
+        async def get_prefix(self, message: revolt.Message):
+            return ["!", self.user.mention+" "]
+        
+        on_message_events = []
+        async def _on_message(self, message):
+            for i in self.on_message_events:
+                await i(message)
+
+        async def process_commands(self, message: revolt.Message):
+            """Processes commands, if you overwrite `Client.on_message` you should manually call this function inside the event.
+
+            Parameters
+            -----------
+            message: :class:`Message`
+                The message to process commands on
+
+            Returns
+            --------
+            Any
+                The return of the command, if any
+            """
+            content = message.content
+
+            prefixes = await self.get_prefix(message)
+
+            if isinstance(prefixes, str):
+                prefixes = [prefixes]
+
+            #edited from CommandsClient class
+            has_prefix = True
+            for prefix in prefixes:
+                if content.startswith(prefix):
+                    content = content[len(prefix):]
+                    break
+            else:
+                # return
+                has_prefix = False
+
+            if has_prefix:
+                if not content:
+                    return
+
+                view = self.get_view(message)(content)
+
+                try:
+                    command_name = view.get_next_word()
+                except StopIteration:
+                    return
+
+                context_cls = self.get_context(message)
+
+                try:
+                    command = self.get_command(command_name)
+                except KeyError:
+                    context = context_cls(None, command_name, view, message, self)
+                    return self.dispatch("command_error", context, commands.errors.CommandNotFound(command_name))
+
+                context = context_cls(command, command_name, view, message, self)
+
+                try:
+                    self.dispatch("command", context)
+
+                    if not await self.bot_check(context):
+                        raise commands.errors.CheckError(f"the global check for the command failed")
+
+                    if not await context.can_run():
+                        raise commands.errors.CheckError(f"the check(s) for the command failed")
+
+                    output = await context.invoke()
+                    self.dispatch("after_command_invoke", context, output)
+
+                    return output
+                except Exception as e:
+                    await command._error_handler(command.cog or self, context, e)
+                    self.dispatch("command_error", context, e)
+
+            else:
+                await self._on_message(message)
+
+        on_message = process_commands
+
+
+        # Command event overwriting end
+        # Bot commands
+
 
         @commands.command()
         async def version(self, ctx: commands.Context):
@@ -305,6 +295,137 @@ else:
                     return
             else:
                 await ctx.send(f"Bot is currently running on v{version} (latest)\n(started at {self.startup_time.strftime('%Y-%m-%dT%H:%M:%S.%f')})")
+
+
+        # Bot commands end
+        # Bot events
+
+
+        async def on_ready(self):
+            debug(f"[###### ]: Started bot"+ " "*30,color="green")
+            debug(f"[######+]: Loading server settings"+ " "*30,color="light_blue",end='\r')
+            try:
+                self.logChannel = await self.fetch_channel("01H33X24TYG9S6GFXXZVPH3JPH")
+            except (revolt.errors.HTTPError, revolt.errors.Forbidden, Exception): # "Exception" raised in revolt.channel.channel_factory()
+                if testing_environment == 3:
+                    self.logChannel = await self.fetch_channel("01H35AM97PZW3166FDGK4FAN39")
+            self.bot_owner = self.get_user("01H34JM6Y9GYG5E26FX5Q2P8PW") # for mentioning me on crashes
+            debug(f"[#######]: Loaded server settings"+" "*30,color="green")
+
+            debug(f"[-------] Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
+            await self.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
+        
+        async def on_message_kill_test(self, message):
+            # kill switch, see other modules for other on_message events.
+            if message.author.id == self.bot_owner.id:
+                if message.content == ":kill now please stop":
+                    sys.exit(0)
+
+
+        # Crash event handling
+
+        async def send_crash_message(self, error_type: str, traceback_text: str, error_source: str, color: str, ctx: commands.Context=None):
+            """
+            Sends crash message to Rina's logging channel
+
+            ### Parameters
+            error_type: :class:`str`
+                Is it an 'Error' or an 'AppCommand Error'
+            traceback_text: :class:`str`
+                What is the traceback?
+            error_source: :class:`str`
+                Name of the error source, displayed at the top of the message. Think of event or command.
+            color: :class:`str`
+                Color of the embed
+            ctx (optional): :class:`commands.Context`
+                Context with a potential server. This might allow Rina to send the crash log to that server instead
+            """
+
+            log_guild: revolt.Server
+            try:
+                log_guild = self.get_server(ctx.server_id)
+                vcLog = await self.get_guild_info(ctx.server_id, "vcLog")
+            except (AttributeError, KeyError, LookupError): # no guild settings, or the given messageable
+                try:
+                    log_guild = self.get_server("01H2Y4Y97PW6584PHN1TAVN5WR")
+                except (revolt.errors.HTTPError, LookupError): # LookupError if get_server, HTTPError if fetch_server
+                    if testing_environment == 3:
+                        log_guild = self.get_server("01H35AM97P8B5YKPVATG88JY3F")
+                    else:
+                        raise ValueError("testing_environment variable out of range") # (shouldn't happen anyway)
+
+                try:
+                    vcLog = await self.get_guild_info(log_guild, "vcLog")
+                except KeyError:
+                    await self.logChannel.send("KeyError in get_guild_info while trying to log a crash!")
+                    return # prevent infinite logging loops, i guess
+            
+            error_caps = error_type.upper()
+            debug_message = f"\n\n\n\n[{datetime.now().strftime('%H:%M:%S.%f')}] [{error_caps}]: {error_source}\n\n{traceback_text}\n"
+            debug(f"{debug_message}",add_time=False)
+
+            try:
+                channel = log_guild.get_channel(vcLog)
+            except LookupError:
+                await self.logChannel.send(f"LookupError on get_channel of vcLog of log_guild '{log_guild.name} ({log_guild.id})'")
+                return
+            msg = debug_message.replace("``", "`` ")#("\\", "\\\\").replace("*", "\\*").replace("`", "\\`").replace("_", "\\_").replace("~~", "\\~\\~")
+            msg = "```\n" + msg.strip() + "\n```"
+            embed = revolt.SendableEmbed(colour=color, title = error_type +' Log', description=msg)
+            await channel.send(f"{self.bot_owner.mention}", embed=embed)
+
+        async def on_error(self, event: str, *_args, **_kwargs):
+            # msg = '\n\n          '.join([repr(i) for i in args])+"\n\n"
+            # msg += '\n\n                   '.join([repr(i) for i in kwargs])
+            msg = traceback.format_exc()
+            await self.send_crash_message("Error", msg, event, "rgb(255, 77, 77)")
+
+        async def on_command_error(self, ctx: commands.Context, exception: Exception | commands.errors.CommandNotFound):
+            global commanderror_cooldown
+            if int(mktime(datetime.now().timetuple())) - commanderror_cooldown < 60:
+                # prevent extra log (prevent excessive spam and saving myself some large mentioning chain) if within 1 minute
+                return
+
+            if isinstance(exception, commands.errors.CommandNotFound):
+                cmd_mention = self.get_command_mention("update")
+                await ctx.send(f"This command doesn't exist! Perhaps the commands are unsynced. Ask {self.bot_owner} if she typed {cmd_mention}!")
+            elif isinstance(exception, RuntimeError):
+                # TODO: add help() command to Client so you can call a docstring or help command of a function easily.
+                await ctx.send("RuntimeError: Your command didn't have the right input! TODO.")
+            else:
+                if hasattr(exception, 'original'):
+                    error_reply = "Error "
+                    if hasattr(exception.original, 'status'):
+                        error_reply += str(exception.original.status)
+                        # if error.original.status == "403":
+                        #     await reply(itx, f"Error 403: It seems like I didn't have permissions for this action! If you believe this is an error, please message or ping {client.bot_owner}} :)")
+                    if hasattr(exception.original, 'code'):
+                        error_reply += "(" + str(exception.original.code) + ")"
+                    await ctx.send(error_reply + f". Please report the error and details to {self.bot_owner} ({self.bot_owner.mention}) by pinging her or sending her a DM")
+                else:
+                    await ctx.send("Something went wrong executing your command!\n    " + repr(exception)[:1700])
+
+            try:
+                msg = f"    Executor details: {ctx.author.name} ({ctx.author.id})\n"
+            except Exception as ex:
+                msg = f"    Executor details: couldn't get context author details: {repr(ex)}\n"
+                #   f"    command: {error.command}\n" + \
+                #   f"    arguments: {error.args}\n"
+            if hasattr(exception, 'original'):
+                if hasattr(exception.original, 'code'):
+                    msg += f"    code: {exception.original.code}\n"
+                if hasattr(exception.original, 'status'):
+                    msg += f"    original error: {exception.original.status}: {exception.original.text}\n\n"
+                        #    f"   error response:     {error.original.response}\n\n"
+            if len(traceback.format_exc()) > 16: # 'NoneType: None\n', stupid solution, but it works, i guess
+                msg += traceback.format_exc()
+            else:
+                msg += ''.join(traceback.format_exception(exception)) # returns list of lines (with \n included)
+            await self.send_crash_message("Command Error", msg, f"{ctx.command.name}", "rgb(255,121,77)", ctx=ctx)
+            commanderror_cooldown = int(mktime(datetime.now().timetuple()))
+
+        # Crash event handling end
+        # Bot events end
 
 
     debug(f"[#      ]: Loaded bot" + " " * 30, color="green")
@@ -358,128 +479,6 @@ else:
             await client.start()
 
     asyncio.run(main(TOKEN))
-
-    raise NotImplementedError("End of converted code reached!")
-
-    # Bot commands begin
-    @client.tree.command(name="update",description="Update slash-commands")
-    async def updateCmds(itx: discord.Interaction):
-        if not is_staff(itx):
-            await itx.response.send_message("Only Staff can update the slash commands (to prevent ratelimiting)", ephemeral=True)
-            return
-        await client.tree.sync()
-        client.commandList = await client.tree.fetch_commands()
-        await itx.response.send_message("Updated commands")
-
-    # Bot commands end
-    # Crash event handling
-
-    async def send_crash_message(error_type: str, traceback_text: str, error_source: str, color: discord.Colour, itx: discord.Interaction=None):
-        """
-        Sends crash message to Rina's main logging channel
-
-        ### Parameters
-        error_type: :class:`str`
-            Is it an 'Error' or an 'AppCommand Error'
-        traceback_text: :class:`str`
-            What is the traceback?
-        error_source: :class:`str`
-            Name of the error source, displayed at the top of the message. Think of event or command.
-        color: :class:`discord.Colour`
-            Color of the discord embed
-        itx (optional): :class:`discord.Interaction`
-            Interaction with a potential guild. This might allow Rina to send the crash log to that guild instead
-        """
-
-        log_guild: discord.Guild
-        try:
-            log_guild = itx.guild
-            vcLog = await client.get_guild_info(itx.guild, "vcLog")
-        except (AttributeError, KeyError): # no guild settings, or itx -> 'NoneType' has no attribute '.guild'
-            try:
-                log_guild = await client.fetch_guild(959551566388547676)
-            except discord.errors.NotFound:
-                if testing_environment == 1:
-                    log_guild = await client.fetch_guild(985931648094834798)
-                else:
-                    log_guild = await client.fetch_guild(981615050664075404)
-
-            try:
-                vcLog = await client.get_guild_info(log_guild, "vcLog")
-            except KeyError:
-                return # prevent infinite logging loops, i guess
-        
-        error_caps = error_type.upper()
-        debug_message = f"\n\n\n\n[{datetime.now().strftime('%H:%M:%S.%f')}] [{error_caps}]: {error_source}\n\n{traceback_text}\n"
-        debug(f"{debug_message}",add_time=False)
-
-        channel = await log_guild.fetch_channel(vcLog) #crashes if none
-        msg = debug_message.replace("``", "`` ")#("\\", "\\\\").replace("*", "\\*").replace("`", "\\`").replace("_", "\\_").replace("~~", "\\~\\~")
-        msg = "```" + msg + "```"
-        embed = discord.Embed(color=color, title = error_type +' Log', description=msg)
-        await channel.send(f"{client.bot_owner.mention}", embed=embed, allowed_mentions=discord.AllowedMentions(users=[client.bot_owner]))
-
-    @client.event
-    async def on_error(event: str, *_args, **_kwargs):
-        # msg = '\n\n          '.join([repr(i) for i in args])+"\n\n"
-        # msg += '\n\n                   '.join([repr(i) for i in kwargs])
-        msg = traceback.format_exc()
-        await send_crash_message("Error", msg, event, discord.Colour.from_rgb(r=255, g=77, b=77))
-
-    @client.tree.error
-    async def on_app_command_error(itx: discord.Interaction, error):
-        global appcommanderror_cooldown
-        if int(mktime(datetime.now().timetuple())) - appcommanderror_cooldown < 60:
-            # prevent extra log (prevent excessive spam and saving myself some large mentioning chain) if within 1 minute
-            return
-        
-        async def reply(itx: discord.Interaction, message: str):
-            if itx.response.is_done():
-                await itx.followup.send(message, ephemeral=True)
-            else:
-                await itx.response.send_message(message, ephemeral=True)
-        
-        if isinstance(error, discord.app_commands.errors.CommandNotFound):
-            cmd_mention = client.get_command_mention("update")
-            await reply(itx, f"This command doesn't exist! Perhaps the commands are unsynced. Ask {client.bot_owner} if she typed {cmd_mention}!")
-        elif isinstance(error, discord.app_commands.errors.CommandSignatureMismatch):
-            await reply(itx, f"Error: CommandSignatureMismatch. Either Mia used GroupCog instead of Cog, or this command is out of date (try /update)")
-        else:
-            if hasattr(error, 'original'):
-                error_reply = "Error "
-                if hasattr(error.original, 'status'):
-                    error_reply += str(error.original.status)
-                    # if error.original.status == "403":
-                    #     await reply(itx, f"Error 403: It seems like I didn't have permissions for this action! If you believe this is an error, please message or ping {client.bot_owner}} :)")
-                if hasattr(error.original, 'code'):
-                    error_reply += "(" + str(error.original.code) + ")"
-                await reply(itx, error_reply + f". Please report the error and details to {client.bot_owner} ({client.bot_owner.mention}) by pinging her or sending her a DM")
-            else:
-                await reply(itx, "Something went wrong executing your command!\n    " + repr(error)[:1700])
-
-        try:
-            msg = f"    Executor details: {itx.user} ({itx.user.id})\n"
-        except Exception as ex:
-            msg = f"    Executor details: couldn't get interaction details: {repr(ex)}\n"
-            #   f"    command: {error.command}\n" + \
-            #   f"    arguments: {error.args}\n"
-        if hasattr(error, 'original'):
-            if hasattr(error.original, 'code'):
-                msg += f"    code: {error.original.code}\n"
-            if hasattr(error.original, 'status'):
-                msg += f"    original error: {error.original.status}: {error.original.text}\n\n"
-                    #    f"   error response:     {error.original.response}\n\n"
-        msg += traceback.format_exc()
-        await send_crash_message("AppCommand Error", msg, f"</{itx.command.name}:{itx.data.get('id')}>", discord.Colour.from_rgb(r=255, g=121, b=77), itx=itx)
-        appcommanderror_cooldown = int(mktime(datetime.now().timetuple()))
-
-    try:
-        client.run(TOKEN, log_level=logging.WARNING)
-    except SystemExit:
-        print("Exited the program forcefully using the kill switch")
-
-
-
 
 
 # todo:

@@ -24,18 +24,18 @@ class PagedMessage():
 
 class PageHandling(commands.Cog):
     def __init__(self, client: Bot):
-        client.on_message_events.append(self.on_message_page)
+        # client.on_message_events.append(self.on_message_page)
         self.client = client
 
     # async def on_reaction_add()
 
     @commands.command()
-    async def ping(self, ctx: commands.Context):
+    async def ping(self, ctx: commands.Context, arg1: str):
         if is_verified(ctx):
-            await ctx.send("pong")
+            await ctx.send("pong, "+arg1)
 
-    async def on_message_page(self, message: revolt.Message):
-        print(message.content, "hii")
+    # async def on_message_page(self, message: revolt.Message):
+    #     print(message.content, "hii")
 
 
 def setup(client: Bot):
