@@ -45,7 +45,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.0.4.1".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.0.5.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -92,6 +92,7 @@ else:
         startup_time = datetime.now() # used in /version
         RinaDB = RinaDB
         asyncRinaDB = asyncRinaDB
+        prefixes = ["!"]
         # staff_server_id = 981730502987898960
         bot_owner: revolt.User # for AllowedMentions in on_appcommand_error()
 
@@ -104,7 +105,7 @@ else:
 
 
         def get_command_mention(self, command_string: str):
-            return self.get_prefix(None)+command_string
+            return f"`{self.prefixes[0]}{command_string}`"
             """
             Turn a string (/reminders remindme) into a command mention (</reminders remindme:43783756372647832>)
 
@@ -198,7 +199,7 @@ else:
 
 
         async def get_prefix(self, message: revolt.Message):
-            return ["!", self.user.mention+" "]
+            return self.prefixes
         
         on_message_events = []
         async def _on_message(self, message):
@@ -302,18 +303,21 @@ else:
 
 
         async def on_ready(self):
-            debug(f"[###### ]: Started bot"+ " "*30,color="green")
-            debug(f"[######+]: Loading server settings"+ " "*30,color="light_blue",end='\r')
+            debug(f"[######  ]: Started bot"+ " "*30,color="green")
+            debug(f"[######+ ]: Loading server settings"+ " "*30,color="light_blue",end='\r')
+            
             try:
                 self.logChannel = await self.fetch_channel("01H33X24TYG9S6GFXXZVPH3JPH")
             except (revolt.errors.HTTPError, revolt.errors.Forbidden, Exception): # "Exception" raised in revolt.channel.channel_factory()
                 if testing_environment == 3:
                     self.logChannel = await self.fetch_channel("01H35AM97PZW3166FDGK4FAN39")
+            
             self.bot_owner = self.get_user("01H34JM6Y9GYG5E26FX5Q2P8PW") # for mentioning me on crashes
-            debug(f"[#######]: Loaded server settings"+" "*30,color="green")
+            self.prefixes.append(self.user.mention+" ")
+            debug(f"[####### ]: Loaded server settings"+" "*30,color="green")
 
-            debug(f"[-------] Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
             await self.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
+            debug(f"[########] Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
         
         async def on_message_kill_test(self, message):
             # kill switch, see other modules for other on_message events.
@@ -388,10 +392,14 @@ else:
 
             if isinstance(exception, commands.errors.CommandNotFound):
                 cmd_mention = self.get_command_mention("update")
-                await ctx.send(f"This command doesn't exist! Perhaps the commands are unsynced. Ask {self.bot_owner} if she typed {cmd_mention}!")
+                cmd_mention2 = self.get_command_mention("help")
+                await ctx.send(f"This command doesn't exist! Perhaps the commands are unsynced. Ask {self.bot_owner.name}#{self.bot_owner.discriminator} if she typed {cmd_mention}!\n"
+                               f"Perhaps you misspelled your command. Use {cmd_mention2} to check if you used the right command!")
+                return
             elif isinstance(exception, RuntimeError):
                 # TODO: add help() command to Client so you can call a docstring or help command of a function easily.
                 await ctx.send("RuntimeError: Your command didn't have the right input! TODO.")
+                return
             else:
                 if hasattr(exception, 'original'):
                     error_reply = "Error "
@@ -401,7 +409,7 @@ else:
                         #     await reply(itx, f"Error 403: It seems like I didn't have permissions for this action! If you believe this is an error, please message or ping {client.bot_owner}} :)")
                     if hasattr(exception.original, 'code'):
                         error_reply += "(" + str(exception.original.code) + ")"
-                    await ctx.send(error_reply + f". Please report the error and details to {self.bot_owner} ({self.bot_owner.mention}) by pinging her or sending her a DM")
+                    await ctx.send(error_reply + f". Please report the error and details to {self.bot_owner.name}#{self.bot_owner.discriminator} by pinging her or sending her a DM")
                 else:
                     await ctx.send("Something went wrong executing your command!\n    " + repr(exception)[:1700])
 
@@ -428,19 +436,19 @@ else:
         # Bot events end
 
 
-    debug(f"[#      ]: Loaded bot" + " " * 30, color="green")
-    debug(f"[#+     ]: Starting Bot...", color="light_blue", end='\r')
+    debug(f"[#       ]: Loaded bot" + " " * 30, color="green")
+    debug(f"[#+      ]: Starting Bot...", color="light_blue", end='\r')
 
     async def main(token):
         async with revolt.utils.client_session() as session:
             start = datetime.now()
             client = Bot(session, token)
             client.on_message_events.append(client.on_message_kill_test)
-            debug(f"[##     ]: Started Bot"+" "*30,color="green")
+            debug(f"[##      ]: Started Bot"+" "*30,color="green")
 
             extensions = [
                 # "cmd_addons",
-                # "cmd_customvcs",
+                "cmd_customvcs",
                 # "cmd_emojistats",
                 # "cmd_getmemberdata",
                 # "cmd_pronouns",
@@ -457,7 +465,7 @@ else:
                 debug(f"[{'#'*extID}+{' '*(len(extensions)-extID-1)}]: Loading {extensions[extID]}"+" "*15,color="light_blue",end='\r')
                 client.load_extension(extensions[extID])
 
-            debug(f"[###    ]: Loaded extensions successfully (in {datetime.now()-start})",color="green")
+            debug(f"[###     ]: Loaded extensions successfully (in {datetime.now()-start})",color="green")
             # debug(f"[###+   ]: Restarting ongoing reminders"+" "*30,color="light_blue",end="\r")
             # collection = RinaDB["reminders"]
             # query = {}
@@ -470,12 +478,12 @@ else:
             #             Reminders.Reminder(client, creationtime, remindertime, user['userID'], reminder['reminder'], user, continued=True)
             #     except KeyError:
             #         pass
-            debug(f"[####   ]: Finished setting up reminders"+" "*30,color="yellow")
+            debug(f"[####    ]: Finished setting up reminders"+" "*30,color="yellow")
             # debug(f"[####+  ]: Caching bot's command names and their ids",color="light_blue",end='\r')
             # commandList = await client.tree.fetch_commands()
             # client.commandList = commandList
-            debug(f"[#####  ]: Cached bot's command names and their ids"+" "*30,color="yellow")
-            debug(f"[#####+ ]: Starting..."+" "*30,color="light_blue",end='\r')
+            debug(f"[#####   ]: Cached bot's command names and their ids"+" "*30,color="yellow")
+            debug(f"[#####+  ]: Starting..."+" "*30,color="light_blue",end='\r')
             await client.start()
 
     asyncio.run(main(TOKEN))

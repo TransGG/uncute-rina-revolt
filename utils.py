@@ -3,7 +3,7 @@ from Uncute_Rina import *
 reaction_messages = {}
 
 class PagedMessage():
-    def __init__(self, client: Bot, ctx: commands.Context, pages, timeout = None):
+    def __init__(self, client: Bot, ctx: commands.Context, pages, timeout = 180):
         self.client = client
         self.ctx = ctx
         self.pages = pages
@@ -29,10 +29,9 @@ class PageHandling(commands.Cog):
 
     # async def on_reaction_add()
 
-    @commands.command()
-    async def ping(self, ctx: commands.Context, arg1: str):
-        if is_verified(ctx):
-            await ctx.send("pong, "+arg1)
+    @commands.command(usage="Pong! testing the abilities of a usage string by \n throwing stuff in it")
+    async def ping(self, ctx: commands.Context, arg1: str = None):
+        await ctx.send("pong, "+str(arg1))
 
     # async def on_message_page(self, message: revolt.Message):
     #     print(message.content, "hii")
@@ -41,9 +40,10 @@ class PageHandling(commands.Cog):
 def setup(client: Bot):
     client.add_cog(PageHandling(client))
 
-            
 
 
+# TODO: make make_string_safe_to_send_to_public() function to remove mentions etc.
+# TODO: make all context messages reply to the original command
 
 def is_verified(ctx: commands.Context):
     """
@@ -75,11 +75,13 @@ def is_staff(ctx: commands.Context):
     """
     Check if someone is staff
 
-    ### Parameters:
+    ### Parameters
+    ---------------
     ctx: :class:`commands.Context`
         context with ctx.server.roles and itx.author.roles
     
     ### Returns
+    -----------
     `bool` is_staff
     """
     if ctx.server_id is None:
@@ -100,11 +102,13 @@ def is_admin(ctx: commands.Context):
     """
     Check if someone is an admin
 
-    ### Parameters:
+    ### Parameters
+    ---------------
     ctx: :class:`discord.Interaction`
         interaction with itx.guild.roles and itx.user
     
     ### Returns
+    -----------
     `bool` is_admin
     """
     if ctx.server_id is None:
@@ -131,7 +135,8 @@ def debug(text="", color="default", add_time=True, end="\n", advanced=False):
     """
     Log a message to the console
 
-    ### Parameters:
+    ### Parameters
+    ---------------
     text: :class:`str`
         The message you want to send to the console
     color (optional): :class:`str`
@@ -264,7 +269,8 @@ async def executed_in_dms(ctx: commands.Context = None,
     """
     Make a command guild-only by telling people in DMs that they can't use the command
 
-    ### Parameters:
+    ### Parameters
+    ---------------
     ctx: :class:`commands.context`
         The context to check if it was used in a server - and to reply to
     message: :class:`discord.Message` (used for events)
@@ -272,13 +278,17 @@ async def executed_in_dms(ctx: commands.Context = None,
     channel: :class:`revolt.ServerChannel`
         The channel to check if it was used in a server
 
-    ### Returns:
+    ### Returns
+    ------------
     :class:`bool` if command was executed in DMs (for 'if ... : continue')
+
+    (:class:`revolt.Message` is sent to the executor)
     """
-    assert (ctx == None) ^ (message == None) ^ (channel == None), ValueError("Give an itx, message, or channel, not multiple!")
-    id_object = next(i for i in [ctx, message, channel] if i is not None)
+    assert len([i for i in [ctx, message, channel] if i is not None]) == 1, ValueError("Give an itx, message, or channel, not multiple!")
+    id_object: revolt.Message | commands.Context | revolt.ServerChannel = next(i for i in [ctx, message, channel] if i is not None)
     if id_object.server_id is None:
         if type(id_object) == revolt.Message:
+            # Technically you could check if `channel` is DMChannel, but server_id==None should catch this too.
             await id_object.channel.send("This command is unavailable in DMs", ephemeral=True)
             return True
         await id_object.send("This command is unavailable in DMs", ephemeral=True)
