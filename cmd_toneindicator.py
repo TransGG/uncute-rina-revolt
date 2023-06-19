@@ -2,6 +2,9 @@ from Uncute_Rina import *
 from import_modules import *
 
 class ToneIndicator(commands.Cog):
+    def __init__(self, client):
+        self.client = client # unused for now
+
     @commands.command()
     async def toneindicator(self, ctx: commands.Context, mode: str, string: str):
         tone_indicators = {
@@ -213,6 +216,6 @@ class ToneIndicator(commands.Cog):
             result_str = "Your search returned too many results (discord has a 2000-character message length D:). Please search for something more specific."
         await ctx.message.reply(result_str)
 
-async def setup(client):
+def setup(client):
     # client.add_command("toneindicator")
-    await client.add_cog(ToneIndicator(client))
+    client.add_cog(ToneIndicator(client))

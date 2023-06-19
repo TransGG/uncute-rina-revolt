@@ -9,10 +9,8 @@ class TermDictionary(commands.Cog):
         RinaDB = client.RinaDB
         self.client = client
 
-    @commands.command(usage="""dictionary <term...> source=[source]
-    
-    """)
-    async def dictionary(self, ctx: commands.Context, *term: str, source: str = "1"):
+    @commands.command(usage="dictionary source=[source] <term...>")
+    async def dictionary(self, ctx: commands.Context, *term: str):
         """
         Look for the definition of a trans-related term!
 
@@ -23,17 +21,38 @@ class TermDictionary(commands.Cog):
         source: :class:`int`
             Where do you want to search? Online? Custom Dictionary? Or just leave it default..
         """
-        term = " ".join(term)
-        if source not in [str(i) for i in range(1,9)]:
+        class SourceError(ValueError):
+            pass
+        try:
+            if term[0].startswith("source="):
+                if len(term) > 1:
+                    source = term[0]
+                    if source.count("=") != 1 and source.count(":") != 1:
+                        raise SourceError
+                    elif source.count("=") == 1:
+                        source = source.split("=",1)[1]
+                    else:
+                        source = source.split(":",1)[1]
+                    term = term[1:]
+                else:
+                    return self.dispatch("command_error", ctx, RuntimeError) # has only kwarg and no term - send help msg
+            else:
+                source = "1"
+            term = " ".join(term)
+            print(term, "-", source)
+            if source not in [str(i) for i in range(1,9)]:
+                raise SourceError
+            else:
+                source = int(source)
+        except SourceError:
             await ctx.message.reply("Source should be a number from 1 to 8:\n"
                                     "- Source 2 checks the custom dictionary\n"
                                     "- Source 4 checks en.pronouns.page\n"
                                     "- Source 6 checks dictionaryapi.dev\n"
                                     "- Source 8 checks UrbanDictionary.com\n"
-                                    "- Source 1 (default) will go through sources 2, 4, 6, and 8, until it finds a result.")
-            return
-        else:
-            source = int(source)
+                                    "- Source 1 (default) will go through sources 2, 4, 6, and 8, until it finds a result.\n\n"
+                                    "Example: `source=1`")
+        
         def simplify(q):
             if type(q) is str:
                 return q.lower().translate(del_separators_table)

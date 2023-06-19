@@ -107,7 +107,7 @@ class CustomEmbed(revolt.SendableEmbed):
         elif name is None:
             self.description += f"{value}"
         else:
-            self.description += f"### {value}\n{value}"
+            self.description += f"### {name}\n{value}"
 
     def set_footer(self, text):
         self.footer = text
