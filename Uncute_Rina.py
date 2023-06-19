@@ -2,7 +2,6 @@ if __name__ == '__main__':
     print("Program started")
 from import_modules import *
 
-
 if __name__ != '__main__':
     class  Bot(revolt.Client):
         pass
@@ -31,10 +30,12 @@ else:
     commanderror_cooldown = 0
     debug(f"[###+ ]: Loading version..." + " " * 30, color="light_blue", end='\r')
     # Dependencies:
-    #   server members intent,
-    #   message content intent,
     #   permissions:
-    #       send messages
+    #       read messages (for commands)
+    #       send messages (for command responses)
+    #       add reaction (for PagedMessage)
+    #       remove (other people's) reactions (for PagedMessage, if someone reacts)
+    #
     #       attach files (for image of the member joining graph thing)
     #       read channel history (locate previous starboard message, for example)
     #       move users between voice channels (custom vc)
@@ -45,7 +46,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.0.5.0".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.0.6.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -72,7 +73,6 @@ else:
 
 # interactions
 # mentions
-# reactions 
 # remove_all_reactions 
 # remove_reaction 
 # replies 
@@ -279,6 +279,11 @@ else:
 
         on_message = process_commands
 
+        on_reaction_add_events = []
+
+        async def on_reaction_add(self, message: revolt.Message, user: revolt.User, emoji_id: str):
+            for i in self.on_reaction_add_events:
+                await i(message, user, emoji_id)
 
         # Command event overwriting end
         # Bot commands
@@ -442,6 +447,7 @@ else:
     async def main(token):
         async with revolt.utils.client_session() as session:
             start = datetime.now()
+            logging.getLogger("revolt").setLevel(logging.WARNING)
             client = Bot(session, token)
             client.on_message_events.append(client.on_message_kill_test)
             debug(f"[##      ]: Started Bot"+" "*30,color="green")

@@ -1,41 +1,150 @@
 from Uncute_Rina import *
 
-reaction_messages = {}
-
 class PagedMessage():
-    def __init__(self, client: Bot, ctx: commands.Context, pages, timeout = 180):
-        self.client = client
-        self.ctx = ctx
-        self.pages = pages
-        self.page = 0
-        self.timeout = timeout
+    def __init__(self, client: Bot, ctx: commands.Context, pages, timeout = 180, content: str | None = None,
+                 backward_button = "◀️", forward_button = "▶️"):
+        self.client: Bot = client
+        self.ctx: commands.Context = ctx
+        self.pages: list[CustomEmbed] = pages
+        self.page: int = 0
+        self.timeout: int = timeout
+        self.backward_button: str = backward_button
+        self.forward_button: str = forward_button
+        self.content = content
+        self.buttons = [self.backward_button, self.forward_button] # not sure if this is necessary. Thought it could be good for dependencies
+        
         self.message: revolt.Message
+        #note: don't use message.content or message.embeds, it's unreliable cause it's changing all the time
     
+    async def forward(self):
+        if self.page+1 >= len(self.pages):
+            self.page = 0 # loop-around to first page
+        else:
+            self.page += 1
+        embed = self.pages[self.page].copy()
+        if getattr(embed, "footer", False):
+            embed.set_footer(text=embed.footer+"\n##### page: " + str(self.page + 1) + " / " + str(len(self.pages)))
+        else:
+            embed.set_footer(text="page: " + str(self.page + 1) + " / " + str(len(self.pages)))
+        await self.message.edit(embeds=[embed])
+        self.message.embeds = [embed]
+    
+    async def backward(self):
+        if self.page-1 < 0:
+            self.page = len(self.pages) - 1 # loop-around to last page
+        else:
+            self.page -= 1
+        embed = self.pages[self.page].copy()
+        if getattr(embed, "footer", False):
+            embed.set_footer(text=embed.footer+"\n##### page: " + str(self.page + 1) + " / " + str(len(self.pages)))
+        else:
+            embed.set_footer(text="page: " + str(self.page + 1) + " / " + str(len(self.pages)))
+        await self.message.edit(embeds=[embed])
+        self.message.embeds = [embed]
+
     async def on_timeout(self):
         del reaction_messages[self.message.id]
         await self.message.remove_all_reactions()
 
     async def send(self):
-        self.message = await self.ctx.channel.send(embed=self.pages[self.page])
-        self.message.add_reaction("◀️")
-        self.message.add_reaction("▶️")
+        embed = self.pages[self.page].copy()
+        if getattr(embed, "footer"):
+            embed.set_footer(text=embed.footer+"\n##### page: " + str(self.page + 1) + " / " + str(len(self.pages)))
+        else:
+            embed.set_footer(text="page: " + str(self.page + 1) + " / " + str(len(self.pages)))
+        self.message = await self.ctx.message.reply(content=self.content, embed=embed)
+        for button in self.buttons:
+            await self.message.add_reaction(button)
         if self.timeout:
+            reaction_messages[self.message.id] = self
             self.client.sched.add_job(self.on_timeout, "date", run_date=datetime.now()+timedelta(minutes=self.timeout))
 
 class PageHandling(commands.Cog):
     def __init__(self, client: Bot):
         # client.on_message_events.append(self.on_message_page)
+        client.on_reaction_add_events.append(self.on_page_reaction_add)
         self.client = client
 
-    # async def on_reaction_add()
+    async def on_page_reaction_add(self, message: revolt.Message, user: revolt.User, emoji_id: str):
+        if user.id == self.client.user.id:
+            return
+        if message.id not in reaction_messages:
+            return
+        paged_message: PagedMessage = reaction_messages[message.id]
+
+        if paged_message.ctx.author.id != user.id:
+            return
+
+        if emoji_id == paged_message.backward_button:
+            await paged_message.backward()
+        elif emoji_id == paged_message.forward_button:
+            await paged_message.forward()
+        else:
+            return
+        
+        m = paged_message.message
+        await m.state.http.request("DELETE", f"/channels/{m.channel.id}/messages/{m.id}/reactions/{emoji_id}", params={"user_id":user.id})
 
     @commands.command(usage="Pong! testing the abilities of a usage string by \n throwing stuff in it")
-    async def ping(self, ctx: commands.Context, arg1: str = None):
-        await ctx.send("pong, "+str(arg1))
+    async def ping(self, ctx: commands.Context, arg1: str = ""):
+        embed_list = []
+        embed1=CustomEmbed(colour="#00ff00")
+        embed1.add_field(value="## This is the name\nThis is a green embed. This was the description.")
+        embed1.add_field(name="Custom field name", value="Field value")
+        embed1.add_field(name="Another field name", value="Second value")
+        embed1.set_footer("This is a footer text for a custom embed.")
+        embed_list.append(embed1)
+        embed2=CustomEmbed(colour="#0000ff")
+        embed2.add_field(value="## This is another name\nThis is a blue embed. This is the second embed description.")
+        embed2.add_field(name="Very much name", value="Very value")
+        embed2.add_field(name="Another very name", value="Second much value")
+        embed2.set_footer("This is more foot for a embed.")
+        embed_list.append(embed2)
+        await PagedMessage(self.client, ctx, embed_list).send()
 
     # async def on_message_page(self, message: revolt.Message):
     #     print(message.content, "hii")
 
+reaction_messages: dict[str, PagedMessage] = {}
+
+
+class CustomEmbed(revolt.SendableEmbed):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.footer: str | None = None
+
+    def add_field(self, name = None, value = None, inline = None):
+        if name is None and value is None:
+            raise ValueError("A 'name' or 'value' must be given")
+        
+        if self.description == None:
+            self.description = ""
+        else:
+            self.description += "\n"
+
+        if value is None:
+            self.description += f"### {name}"
+        elif name is None:
+            self.description += f"{value}"
+        else:
+            self.description += f"### {value}\n{value}"
+
+    def set_footer(self, text):
+        self.footer = text
+
+    def to_dict(self):
+        if self.footer is not None:
+            if self.description == None:
+                self.description = ""
+            else:
+                self.description += "\n\n"
+            self.description += f"##### {self.footer}"
+        return super().to_dict()
+    
+    def copy(self):
+        deepcopy = CustomEmbed(title=self.title, description=self.description, colour=self.colour)
+        deepcopy.set_footer(self.footer)
+        return deepcopy
 
 def setup(client: Bot):
     client.add_cog(PageHandling(client))
