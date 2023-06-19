@@ -276,7 +276,7 @@ class CustomVcs(commands.Cog):
     #         await logChannel.send("Warning! >> "+ex_message+f" << {itx.user.nick or itx.user.name} ({itx.user.id}) tried to change {oldName} ({channel.id}) to {name}, but wasn't allowed to by discord, probably because it's in a banned word list for discord's discovery <@262913789375021056>")
 
     # @commands.check(executed_in_dms)
-    @commands.command()
+    @commands.command(cls=CustomCommand)
     async def editguildinfo(self, ctx: commands.Context, mode: str, option: str, value: str = None):
         """
         View or edit the guild info / Rina's settings in a server

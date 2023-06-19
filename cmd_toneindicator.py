@@ -5,7 +5,7 @@ class ToneIndicator(commands.Cog):
     def __init__(self, client):
         self.client = client # unused for now
 
-    @commands.command()
+    @commands.command(cls=CustomCommand)
     async def toneindicator(self, ctx: commands.Context, mode: str, string: str):
         tone_indicators = {
             "excited" : ["/!","/exc"],

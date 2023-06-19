@@ -39,7 +39,6 @@ class TermDictionary(commands.Cog):
             else:
                 source = "1"
             term = " ".join(term)
-            print(term, "-", source)
             if source not in [str(i) for i in range(1,9)]:
                 raise SourceError
             else:

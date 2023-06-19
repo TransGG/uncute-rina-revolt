@@ -7,7 +7,7 @@ class TodoList(commands.Cog):
         RinaDB = client.RinaDB
         self.client = client
 
-    @commands.command()
+    @commands.command(cls=CustomCommand)
     async def todo(self, ctx: commands.Context, mode: str, *todo):
         """
         Add/remove/check your to-do list!

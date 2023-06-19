@@ -240,7 +240,7 @@ class CustomHelpCommand(commands.help.HelpCommand):
         lines.append(f"{command.name}:")
         lines.append(f"  ### Usage\n"
                      f"  ---------\n"
-                     f"{self.trim_command_attribute(command, type='usage') if hasattr(command, 'usage') else command.get_usage()}")
+                     f"{self.trim_command_attribute(command, _type='usage') if hasattr(command, 'usage') else command.get_usage()}")
         if command.aliases:
             lines.append(f"\n"
                          f"  ### Aliases\n"
@@ -289,6 +289,34 @@ class CustomHelpCommand(commands.help.HelpCommand):
 
     async def handle_no_cog_found(self, ctx: commands.Context, name: str):
         await ctx.message.reply(f"Cog `{name}` not found. (not sure when this would be called. Please ping {Bot.bot_owner.mention} so I learn :D)")
+
+class CustomCommand(commands.Command):
+    """Class for holding info about a command.
+
+    Parameters
+    ----------
+    callback: Callable[..., Coroutine[Any, Any, Any]]
+        The callback for the command
+    name: :class:`str`
+        The name of the command
+    aliases (optional): :class:`str`
+        The aliases of the command. (default: None)
+    parent (optional): :class:`Group`
+        The parent of the command if this command is a subcommand. (default: None)
+    cog (optional): :class:`Cog`
+        The cog the command is apart of. (default: None)
+    usage (optional): :class:`str`
+        The usage string for the command. (default: None)
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._error_handler = type(self).error_handler
+    
+    async def error_handler(self, ctx: commands.Context, error: Exception):
+        #This should handle replying to the author and log to console.
+        ctx.client.dispatch("command_error", ctx,  error)
+        ctx.client.on_command_error(ctx, error)
+        # traceback.print_exception(type(error), error, error.__traceback__)
 
 
 def setup(client: Bot):
@@ -552,8 +580,8 @@ async def executed_in_dms(ctx: commands.Context = None,
 def safe_string(string: str):
     index = 0
     while index < len(string):
-        if string[index] == ">":
-            # if matching (regex) /[^\\]+>/g (> followed by no backslash)
+        if string[index] == "@":
+            # if matching (regex) /[^\\]+@/g (@ followed by no backslash)
             if index != 0 and string[index-1] != "\\":
                 string = string[:index] + '\\' + string[index:]
                 index += 1 # increment 1 because string length got 1 longer
