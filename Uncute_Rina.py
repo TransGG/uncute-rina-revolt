@@ -2,8 +2,9 @@ if __name__ == '__main__':
     print("Program started")
 from import_modules import *
 
+client = 0
 if __name__ != '__main__':
-    class  Bot(revolt.Client):
+    class  Bot(commands.CommandsClient):
         pass
 else:
     debug(f"[#+   ]: Loading api keys..." + " " * 30, color="light_blue", end='\r')
@@ -46,7 +47,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.0.6.0".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.0.7.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -81,9 +82,32 @@ else:
 # server 
 # server_id 
 # state 
-    from revolt.ext import commands
+
     class Bot(commands.CommandsClient):
         def __init__(self, *args, **kwargs):
+            """
+            Create custom bot class
+
+            ### Parameters (commands.CommandsClient)
+            --------------
+            help_command (optional): :class:`commands.help.HelpCommand`
+                The help command handler to use for the help command (default: Pre-made handler)
+            case_insensitive (optional): :class:`bool`
+                Whether commands are case-sensitive (roll vs ROLL) (default: False)
+            
+            ### Parameters (revolt.Client)
+            --------------
+            session: :class:`aiohttp.ClientSession`
+                The aiohttp session to use for http request and the websocket
+            token: :class:`str`
+                The bot's token
+            api_url (optional): :class:`str`
+                The api url for the revolt instance you are connecting to, (default: offical instance hosted at api.revolt.chat)
+            max_messages (optional): :class:`int`
+                The max amount of messages stored in the cache, (default: 5000)
+            bot (optional):class:`bool`
+                Whether the targeted token is for a bot or user. (default: True)
+            """
             super().__init__(*args, **kwargs)
 
         commandList: list[discord.app_commands.AppCommand]
@@ -322,7 +346,7 @@ else:
             debug(f"[####### ]: Loaded server settings"+" "*30,color="green")
 
             await self.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
-            debug(f"[########] Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
+            debug(f"[########]: Logged in as {self.user.name}, in version {version} (in {datetime.now()-program_start})",color="green")
         
         async def on_message_kill_test(self, message):
             # kill switch, see other modules for other on_message events.
@@ -448,7 +472,8 @@ else:
         async with revolt.utils.client_session() as session:
             start = datetime.now()
             logging.getLogger("revolt").setLevel(logging.WARNING)
-            client = Bot(session, token)
+            global client
+            client = Bot(session=session, token=token, help_command=CustomHelpCommand())
             client.on_message_events.append(client.on_message_kill_test)
             debug(f"[##      ]: Started Bot"+" "*30,color="green")
 

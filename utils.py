@@ -1,6 +1,6 @@
 from Uncute_Rina import *
 
-class PagedMessage():
+class PagedMessage:
     def __init__(self, client: Bot, ctx: commands.Context, pages, timeout = 180, content: str | None = None,
                  backward_button = "◀️", forward_button = "▶️"):
         self.client: Bot = client
@@ -59,7 +59,7 @@ class PagedMessage():
             reaction_messages[self.message.id] = self
             self.client.sched.add_job(self.on_timeout, "date", run_date=datetime.now()+timedelta(minutes=self.timeout))
 
-class PageHandling(commands.Cog):
+class PageHandling(commands.Cog[Bot]):
     def __init__(self, client: Bot):
         # client.on_message_events.append(self.on_message_page)
         client.on_reaction_add_events.append(self.on_page_reaction_add)
@@ -84,26 +84,6 @@ class PageHandling(commands.Cog):
         
         m = paged_message.message
         await m.state.http.request("DELETE", f"/channels/{m.channel.id}/messages/{m.id}/reactions/{emoji_id}", params={"user_id":user.id})
-
-    @commands.command(usage="Pong! testing the abilities of a usage string by \n throwing stuff in it")
-    async def ping(self, ctx: commands.Context, arg1: str = ""):
-        embed_list = []
-        embed1=CustomEmbed(colour="#00ff00")
-        embed1.add_field(value="## This is the name\nThis is a green embed. This was the description.")
-        embed1.add_field(name="Custom field name", value="Field value")
-        embed1.add_field(name="Another field name", value="Second value")
-        embed1.set_footer("This is a footer text for a custom embed.")
-        embed_list.append(embed1)
-        embed2=CustomEmbed(colour="#0000ff")
-        embed2.add_field(value="## This is another name\nThis is a blue embed. This is the second embed description.")
-        embed2.add_field(name="Very much name", value="Very value")
-        embed2.add_field(name="Another very name", value="Second much value")
-        embed2.set_footer("This is more foot for a embed.")
-        embed_list.append(embed2)
-        await PagedMessage(self.client, ctx, embed_list).send()
-
-    # async def on_message_page(self, message: revolt.Message):
-    #     print(message.content, "hii")
 
 reaction_messages: dict[str, PagedMessage] = {}
 
@@ -145,6 +125,184 @@ class CustomEmbed(revolt.SendableEmbed):
         deepcopy = CustomEmbed(title=self.title, description=self.description, colour=self.colour)
         deepcopy.set_footer(self.footer)
         return deepcopy
+
+class CustomGroup(commands.Group):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def command(self, *, name = None, aliases: list[str] = None, cls = commands.Command, usage: str | None = None):
+        """A decorator that turns a function into a :class:`Command` and registers the command as a subcommand.
+
+        Parameters
+        -----------
+        name: Optional[:class:`str`]
+            The name of the command, this defaults to the functions name
+        aliases: Optional[list[:class:`str`]]
+            The aliases of the command, defaults to no aliases
+        cls: type[:class:`Command`]
+            The class used for creating the command, this defaults to :class:`Command` but can be used to use a custom command subclass
+        usage: Optional[:class:`str`]
+            The usage string for the command
+        Returns
+        --------
+        Callable[Callable[..., Coroutine], :class:`Command`]
+            A function that takes the command callback and returns a :class:`Command`
+        """
+        def inner(func):
+            command = cls(func, name or func.__name__, aliases or [], usage=usage)
+            command.parent = self
+            self.subcommands[command.name] = command
+            return command
+
+        return inner
+
+class CustomHelpCommand(commands.help.HelpCommand):
+    def get_short_command_description(self, command: commands.Command):
+        """
+        Get short description of a given command (first or second line)
+        
+        ### Parameters
+        --------------
+        command: :class:`commands.Command`
+            The command to get the short descrpition of
+
+        ### Returns
+        -----------
+        first line of description, if not empty. Else
+        second line of description, if not empty. Else
+        empty string
+        """
+        if desc := command.description:
+            if desc := desc.split("\n")[0]:
+                # get first line of description
+                pass
+            elif len(split_desc := command.description.split("\n")) > 1 and (desc := split_desc[1]):
+                # get second line of description if there is more than 1 line in the description, and store it in `desc`
+                pass
+            else:
+                desc = self.trim_command_attribute(command)
+        else:
+            desc = "No description"
+        return desc.strip()
+    
+    def trim_command_attribute(self, command: commands.Command, _type: str = "description"):
+        """
+        Get / trim a string (docstring) from a command attribute
+
+        ### Parameters
+        --------------
+        command: :class:`commands.Command`
+            The command to get the description of
+        type (optional): :class:`str`
+            The attribute to use (default: "description", can be "usage" too)
+        """
+        # largely copied from PEP-0257
+        attr = getattr(command, _type)
+        if not attr:
+            return "No description"
+        lines = attr.split("\n")
+
+        # Determine minimum indentation (first line doesn't count):
+        indent = sys.maxsize
+        for line in lines[1:]:
+            stripped = line.lstrip()
+            if stripped:
+                indent = min(indent, len(line) - len(stripped))
+        # Remove indentation (first line is special):
+        trimmed = [lines[0].strip()]
+        for line in lines[1:]:
+            trimmed.append(line[indent:])
+        # Strip off blank lines before and after description:
+        while trimmed and not trimmed[-1]:
+            trimmed.pop()
+        while trimmed and not trimmed[0]:
+            trimmed.pop(0)
+        # add 2-space indent
+        return '\n'.join(["  "+line for line in trimmed])
+
+    async def create_bot_help(self, ctx: commands.Context, commands: dict[commands.Cog | None, list[commands.Command]]):
+        lines = ["```"]
+        for cog, cog_commands in commands.items():
+            cog_lines: list[str] = []
+            cog_lines.append(f"{cog.qualified_name if cog else 'No cog'}:")
+
+            for command in cog_commands:
+                desc = self.get_short_command_description(command)
+                cog_lines.append(f"  {command.name} - {desc}")
+
+            lines.append("\n".join(cog_lines))
+
+        lines.append("```")
+        return "\n".join(lines)
+
+    async def create_command_help(self, ctx: commands.Context, command: commands.Command):
+        lines = ["```"]
+        lines.append(f"{command.name}:")
+        lines.append(f"  ### Usage\n"
+                     f"  ---------\n"
+                     f"{self.trim_command_attribute(command, type='usage') if hasattr(command, 'usage') else command.get_usage()}")
+        if command.aliases:
+            lines.append(f"\n"
+                         f"  ### Aliases\n"
+                         f"  -----------\n"
+                         f"  {', '.join(command.aliases)}")
+        if command.description:
+            lines.append("\n" +
+                         self.trim_command_attribute(command))#self.get_command_description(command))
+
+        lines.append("```")
+        return "\n".join(lines)
+
+    async def create_group_help(self, ctx: commands.Context, group: commands.Group):
+        lines = ["```"]
+        lines.append(f"{group.name}:")
+        lines.append(f"  Usage: {group.get_usage()}")
+
+        if group.aliases:
+            lines.append(f"  Aliases: {', '.join(group.aliases)}")
+
+        if group.description:
+            lines.append(group.description)
+
+        for command in group.commands:
+            desc = self.get_short_command_description(command)
+            lines.append(f"  {command.name} - {desc}")
+        lines.append("```")
+        return "\n".join(lines)
+
+    async def create_cog_help(self, ctx: commands.Context, cog: commands.Cog):
+        lines = ["```"]
+        lines.append(f"{cog.qualified_name}:")
+
+        for command in cog.commands:
+            desc = self.get_short_command_description(command)
+            lines.append(f"  {command.name} - {desc}")
+
+        lines.append("```")
+        return "\n".join(lines)
+
+    async def filter_commands(self, context: commands.Context, commands: list[commands.Command]):
+        filtered: list[commands.Command] = []
+        for command in commands:
+            try:
+                if await context.can_run(command):
+                    filtered.append(command)
+            except Exception:
+                pass
+        return filtered
+    
+    async def group_commands(self, context: commands.Context, commands: list[commands.Command]):
+        cogs: dict[commands.Cog, list[commands.Command]] = {}
+        for command in commands:
+            cogs.setdefault(command.cog, []).append(command)
+        return cogs
+
+    async def handle_no_command_found(self, ctx: commands.Context, name: str):
+        await ctx.message.reply(f"Command `{name}` not found.")
+
+    async def handle_no_cog_found(self, ctx: commands.Context, name: str):
+        await ctx.message.reply(f"Cog `{name}` not found. (not sure when this would be called. Please ping {Bot.bot_owner.mention} so I learn :D)")
+
 
 def setup(client: Bot):
     client.add_cog(PageHandling(client))
