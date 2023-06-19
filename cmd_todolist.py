@@ -7,15 +7,14 @@ class TodoList(commands.Cog):
         RinaDB = client.RinaDB
         self.client = client
 
-    @commands.Command
-    async def todo(self, ctx: commands.Context, mode: str, todo: str = None):
+    @commands.command()
+    async def todo(self, ctx: commands.Context, mode: str, *todo):
         """
         Add/remove/check your to-do list!
-
-        
         """
+        todo = ' '.join(todo) or None
         if (mode := mode.lower()) not in ["add", "remove", "check"]:
-            await ctx.message.reply(f"'mode' needs to be one of the following: add, remove, check. Not '{mode}'")
+            await ctx.message.reply(f"'mode' needs to be one of the following: add, remove, check. Not '{safe_string(mode)}'")
 
         if mode == "add": # Add item to to-do list
             if todo is None:
@@ -23,7 +22,7 @@ class TodoList(commands.Cog):
                 await ctx.message.reply(f"This command lets you add items to your to-do list!\n"
                                         f"Type whatever you still plan to do in the `todo: ` argument, "
                                         f"and then you can see your current to-do list with {cmd_mention} "
-                                        f"mode:Check!")
+                                        f"`mode:Check`!")
                 return
             if len(todo) > 500:
                 ctx.message.reply("I.. don't think having such a big to-do message is gonna be very helpful..")
@@ -82,7 +81,6 @@ class TodoList(commands.Cog):
                 ans.append(f"`{id}`: {list[id]}")
             ans = '\n'.join(ans)
             await ctx.message.reply(f"Found {length} to-do item{'s'*(length!=1)}:\n{ans}")
-
 
 
 def setup(client):

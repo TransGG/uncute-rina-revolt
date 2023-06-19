@@ -9,10 +9,10 @@ class TermDictionary(commands.Cog):
         RinaDB = client.RinaDB
         self.client = client
 
-    @commands.command(usage="""dictionary <term>
+    @commands.command(usage="""dictionary <term...> source=[source]
     
     """)
-    async def dictionary(self, ctx: commands.Context, term: str, source: str = "1"):
+    async def dictionary(self, ctx: commands.Context, *term: str, source: str = "1"):
         """
         Look for the definition of a trans-related term!
 
@@ -23,6 +23,7 @@ class TermDictionary(commands.Cog):
         source: :class:`int`
             Where do you want to search? Online? Custom Dictionary? Or just leave it default..
         """
+        term = " ".join(term)
         if source not in [str(i) for i in range(1,9)]:
             await ctx.message.reply("Source should be a number from 1 to 8:\n"
                                     "- Source 2 checks the custom dictionary\n"
@@ -31,12 +32,14 @@ class TermDictionary(commands.Cog):
                                     "- Source 8 checks UrbanDictionary.com\n"
                                     "- Source 1 (default) will go through sources 2, 4, 6, and 8, until it finds a result.")
             return
+        else:
+            source = int(source)
         def simplify(q):
             if type(q) is str:
                 return q.lower().translate(del_separators_table)
             if type(q) is list:
                 return [text.lower().translate(del_separators_table) for text in q]
-        result_str = ""  # to make my IDE happy. Will still crash on revolt if it actually tries to send it tho: 'Empty message'
+        result_str = ""
         results: list[any]
         # Odd numbers will move to the next odd number if no result is found -> passing all sources until the end. Otherwise, return ""
         if source == 1 or source == 2:
@@ -46,13 +49,12 @@ class TermDictionary(commands.Cog):
 
             result = False
             results = []
-            result_str = ""
             for item in search:
                 if simplify(term) in simplify(item["synonyms"]):
                     results.append([item["term"],item["definition"]])
                     result = True
             if result:
-                result_str += f"I found {len(results)} result{'s'*(len(results)>1)} for '{term}' in our dictionary:\n"
+                result_str += f"I found {len(results)} result{'s'*(len(results)>1)} for '{safe_string(term)}' in our dictionary:\n"
                 for x in results:
                     result_str += f"> **{x[0]}**: {x[1]}\n"
             else:
@@ -62,10 +64,10 @@ class TermDictionary(commands.Cog):
                     source = 3
                 else:
                     cmd_mention = self.client.get_command_mention("dictionary_staff define")
-                    result_str += f"No information found for '{term}' in the custom dictionary.\nIf you would like to add a term, message a staff member (to use {cmd_mention})"
+                    result_str += f"No information found for '{safe_string(term)}' in the custom dictionary.\nIf you would like to add a term, message a staff member (to use {cmd_mention})"
             if len(result_str) > 1999:
-                result_str = f"Your search ({term}) returned too many results (revolt has a 2000-character message length D:). (Please ask staff to fix this (synonyms and stuff).)"
-                await log_to_guild(self.client, ctx.server, f":warning: **!! Warning:** {ctx.author.name} ({ctx.author.id})'s dictionary search ('{term}') gave back a result that was larger than 2000 characters!'")
+                result_str = f"Your search ({safe_string(term)}) returned too many results (revolt has a 2000-character message length D:). (Please ask staff to fix this (synonyms and stuff).)"
+                await log_to_guild(self.client, ctx.server, f":warning: **!! Warning:** {ctx.author.name} ({ctx.author.id})'s dictionary search ('{safe_string(term)}') gave back a result that was larger than 2000 characters!'")
         if source == 3 or source == 4:
             response_api = requests.get(f'https://en.pronouns.page/api/terms/search/{term.lower().replace("/"," ").replace("%"," ")}').text
             data = json.loads(response_api)
@@ -73,7 +75,7 @@ class TermDictionary(commands.Cog):
                 if source == 3:
                     source = 5
                 else:
-                    result_str = f"I didn't find any results for '{term}' on en.pronouns.page"
+                    result_str = f"I didn't find any results for '{safe_string(term)}' on en.pronouns.page"
 
             # edit definitions to hide links to other pages:
             else:
@@ -102,19 +104,19 @@ class TermDictionary(commands.Cog):
                     if simplify(term) in simplify(item['term'].split('|')):
                         results.append(item)
                 if len(results) > 0:
-                    result_str = f"I found {len(results)} exact result{'s'*(len(results)!=1)} for '{term}' on en.pronouns.page! \n"
+                    result_str = f"I found {len(results)} exact result{'s'*(len(results)!=1)} for '{safe_string(term)}' on en.pronouns.page! \n"
                     for item in results:
                         result_str += f"> **{', '.join(item['term'].split('|'))}:** {item['definition']}\n"
                     result_str += f"{len(search)-len(results)} other non-exact results found."*((len(search)-len(results)) > 0)
                     if len(result_str) > 1999:
-                        result_str = f"Your search ('{term}') returned a too-long result! (revolt has a 2000-character message length D:). To still let you get better results, I've rewritten the terms so you might be able to look for a more specific one:"
+                        result_str = f"Your search ('{safe_string(term)}') returned a too-long result! (revolt has a 2000-character message length D:). To still let you get better results, I've rewritten the terms so you might be able to look for a more specific one:"
                         for item in results:
                             result_str += f"> {', '.join(item['term'].split('|'))}\n"
                     await ctx.channel.send(result_str)
                     return
 
                 # if search doesn't exactly match with a result / synonym
-                result_str = f"I found {len(search)} result{'s'*(len(results)!=1)} for '{term}' on en.pronouns.page! "
+                result_str = f"I found {len(search)} result{'s'*(len(results)!=1)} for '{safe_string(term)}' on en.pronouns.page! "
                 if len(search) > 25:
                     result_str += "Here is a list to make your search more specific:\n"
                     results: list[str] = []
@@ -140,7 +142,7 @@ class TermDictionary(commands.Cog):
                     for item in search:
                         result_str += f"> **{', '.join(item['term'].split('|'))}:** {item['definition']}\n"
                 else:
-                    result_str = f"I didn't find any results for '{term}' on en.pronouns.page!"
+                    result_str = f"I didn't find any results for '{safe_string(term)}' on en.pronouns.page!"
                     if source == 4:
                         source = 6
                 msg_length = len(result_str)
@@ -159,7 +161,7 @@ class TermDictionary(commands.Cog):
                 if source == 5:
                     source = 7
                 else:
-                    result_str = f"I didn't find any results for '{term}' on dictionaryapi.dev!"
+                    result_str = f"I didn't find any results for '{safe_string(term)}' on dictionaryapi.dev!"
             else:
                 for result in data:
                     meanings = []
@@ -235,14 +237,14 @@ class TermDictionary(commands.Cog):
             data = json.loads(response_api)['list']
             if len(data) == 0:
                 if source == 7:
-                    result_str = f"I didn't find any results for '{term}' online or in our fancy dictionaries"
+                    result_str = f"I didn't find any results for '{safe_string(term)}' online or in our fancy dictionaries"
                     cmd_mention_dict = self.client.get_command_mention("dictionary")
                     cmd_mention_def = self.client.get_command_mention("dictionary_staff define")
-                    await log_to_guild(self.client, ctx.server, f":warning: **!! Alert:** {ctx.author.name} ({ctx.author.id}) searched for '{term}' "\
+                    await log_to_guild(self.client, ctx.server, f":warning: **!! Alert:** {ctx.author.name} ({ctx.author.id}) searched for '{safe_string(term)}' "\
                                                                 f"in the terminology dictionary and online, but there were no results. Maybe we "\
                                                                 f"should add this term to the {cmd_mention_dict} command ({cmd_mention_def})")
                 else:
-                    result_str = f"I didn't find any results for '{term}' on urban dictionary"
+                    result_str = f"I didn't find any results for '{safe_string(term)}' on urban dictionary"
             else:
                 pages = []
                 for result in data:
@@ -328,8 +330,8 @@ class TermDictionary(commands.Cog):
         post = {"term": term, "definition": definition, "synonyms": synonyms}
         collection.insert_one(post)
 
-        await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) added the dictionary definition of '{term}' and set it to '{definition}', with synonyms: {synonyms}")
-        await ctx.send(warnings+f"Successfully added '{term}' to the dictionary (with synonyms: {synonyms}): {definition}")
+        await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) added the dictionary definition of '{safe_string(term)}' and set it to '{definition}', with synonyms: {synonyms}")
+        await ctx.send(warnings+f"Successfully added '{safe_string(term)}' to the dictionary (with synonyms: {synonyms}): {definition}")
 
     @dictionary_staff.command()
     @app_commands.describe(term="This is the main word for the dictionary entry (case sens.) Example: Egg, Hormone Replacement Therapy (HRT), etc.",
@@ -347,8 +349,8 @@ class TermDictionary(commands.Cog):
             return
         collection.update_one(query, {"$set":{"definition":definition}})
 
-        await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) changed the dictionary definition of '{term}' to '{definition}'")
-        await ctx.send(f"Successfully redefined '{term}'")
+        await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) changed the dictionary definition of '{safe_string(term)}' to '{definition}'")
+        await ctx.send(f"Successfully redefined '{safe_string(term)}'")
 
     @dictionary_staff.command()
     async def undefine(self, ctx: commands.Context, term: str):
@@ -361,11 +363,11 @@ class TermDictionary(commands.Cog):
         if search is None:
             await ctx.send("This term hasn't been added to the dictionary yet, and thus cannot be undefined!")
             return
-        await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) undefined the dictionary definition of '{term}' from '{search['definition']}' with synonyms: {search['synonyms']}")
+        await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) undefined the dictionary definition of '{safe_string(term)}' from '{search['definition']}' with synonyms: {search['synonyms']}")
         collection.delete_one(query)
 
 
-        await ctx.send(f"Successfully undefined '{term}'")
+        await ctx.send(f"Successfully undefined '{safe_string(term)}'")
 
     @dictionary_staff.command()
     async def edit_synonym(self, ctx: commands.Context, term: str, mode: str, synonym: str):
@@ -391,7 +393,7 @@ class TermDictionary(commands.Cog):
                 return
             synonyms.append(synonym.lower())
             collection.update_one(query, {"$set":{"synonyms":synonyms}}, upsert=True)
-            await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) added synonym '{synonym}' the dictionary definition of '{term}'")
+            await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) added synonym '{synonym}' the dictionary definition of '{safe_string(term)}'")
             await ctx.send("Successfully added synonym")
         if mode == "remove":
             synonyms = search["synonyms"]
@@ -403,7 +405,7 @@ class TermDictionary(commands.Cog):
                 await ctx.send("You can't remove all the synonyms to a term! Then you can't find it in the dictionary anymore :P. First, add a synonym before removing one")
                 return
             collection.update_one(query, {"$set":{"synonyms":synonyms}}, upsert=True)
-            await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) removed synonym '{synonym}' the dictionary definition of '{term}'")
+            await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) removed synonym '{synonym}' the dictionary definition of '{safe_string(term)}'")
             await ctx.send("Successfully removed synonym")
 
 def setup(client: Bot):

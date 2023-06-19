@@ -47,7 +47,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.0.7.0".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.0.9.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -231,7 +231,8 @@ else:
                 await i(message)
 
         async def process_commands(self, message: revolt.Message):
-            """Processes commands, if you overwrite `Client.on_message` you should manually call this function inside the event.
+            """
+            Processes commands, if you overwrite `Client.on_message` you should manually call this function inside the event.
 
             Parameters
             -----------
@@ -422,8 +423,13 @@ else:
             if isinstance(exception, commands.errors.CommandNotFound):
                 cmd_mention = self.get_command_mention("update")
                 cmd_mention2 = self.get_command_mention("help")
-                await ctx.send(f"This command doesn't exist! Perhaps the commands are unsynced. Ask {self.bot_owner.name}#{self.bot_owner.discriminator} if she typed {cmd_mention}!\n"
+                await ctx.send(f"This command doesn't exist! Perhaps the commands are unsynced. Ask {self.bot_owner.name}#{self.bot_owner.discriminator} "
+                               f"if she typed {cmd_mention}!\n"
                                f"Perhaps you misspelled your command. Use {cmd_mention2} to check if you used the right command!")
+                return
+            elif isinstance(exception, commands.errors.NoClosingQuote):
+                await ctx.send("Your command was missing a closing quote! Make sure you have an equal amount of opening and closing "
+                               "quotes in your command, for your arguments.")
                 return
             elif isinstance(exception, RuntimeError):
                 # TODO: add help() command to Client so you can call a docstring or help command of a function easily.
@@ -486,8 +492,8 @@ else:
                 # "cmd_qotw",
                 # "cmd_tags",
                 "cmd_termdictionary",
-                # "cmd_todolist",
-                # "cmd_toneindicator",
+                "cmd_todolist",
+                "cmd_toneindicator",
                 # "cmdg_Reminders",
                 # "cmdg_Starboard",
                 "utils",

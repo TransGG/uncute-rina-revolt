@@ -60,7 +60,7 @@ import traceback
 progress.increment("logging")
 import logging
 progress.increment("utils")
-from utils import is_verified, is_staff, is_admin, debug, log_to_guild, executed_in_dms, \
+from utils import is_verified, is_staff, is_admin, debug, log_to_guild, executed_in_dms, safe_string, \
     PagedMessage, CustomEmbed, CustomGroup, CustomHelpCommand
 # progress.increment("reminders")
 # from cmdg_Reminders import Reminders

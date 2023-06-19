@@ -2,16 +2,8 @@ from Uncute_Rina import *
 from import_modules import *
 
 class ToneIndicator(commands.Cog):
-    @app_commands.command(name="toneindicator",description="Look for the definition of a tone indicator")
-    @app_commands.describe(mode="Choose a search method, eg. /p -> platonic; or vice versa",
-                           string="This is your search query. What do you want to look for?",
-                           public="Do you want to share the search results with the rest of the channel? (True=yes)")
-    @app_commands.choices(mode=[
-        discord.app_commands.Choice(name='definition', value=1),
-        discord.app_commands.Choice(name='exact acronym', value=2),
-        discord.app_commands.Choice(name='rough acronym', value=3),
-    ])
-    async def toneindicator(self, itx: discord.Interaction, mode: int, string: str, public: bool = False):
+    @commands.command()
+    async def toneindicator(self, ctx: commands.Context, mode: str, string: str):
         tone_indicators = {
             "excited" : ["/!","/exc"],
             "alterous" : ["/a","/ars"],
@@ -140,11 +132,16 @@ class ToneIndicator(commands.Cog):
             "very upset" : ["/vu"],
             "warm / warmth" : ["/w"],
         }
-
+        if (mode := mode.lower()) not in ["definition", "exact", "rough"]:
+            await ctx.message.reply(f"'mode' needs to be one of the following: definition, exact, rough. Not '{safe_string(mode)}'\n"
+                                    f"'definition' will search for tone indicators whose definition match your input\n"
+                                    f"'exact' will search for tone indicators that exactly match your input (/p for example)\n"
+                                    f"'rough' will search for tone indicators that contain your input (eg. 'srs' in 'nsrs')")
+            return
         result = False
         results = []
         result_str = ""
-        if mode == 1:
+        if mode == "definition":
             for key in tone_indicators:
                 if string.replace("-"," ") in key.replace("-"," ") or string.replace("-","") in key.replace("-",""):
                     overlaps = []
@@ -166,7 +163,7 @@ class ToneIndicator(commands.Cog):
                 if len(x[3]) > 0:
                     y = f"\n   + {len(x[3])} overlapper{'s'*(len(x[3])!=1)}:\n    [ {x[2]}: {', '.join(x[3])} ]"
                 result_str += f"> \"{x[0]}\": {', '.join(x[1])}"+y+"\n"
-        elif mode == 2:
+        elif mode == "exact":
             for key in tone_indicators:
                 for indicator in tone_indicators[key]:
                     if string.replace("/","") == indicator.replace("/",""):
@@ -180,7 +177,7 @@ class ToneIndicator(commands.Cog):
                     max_length = len(x[0])
             for x in results:
                 result_str += f"> '{x[0]}',{' '*(max_length-len(x[0]))} meaning {x[1]}\n"
-        elif mode == 3:
+        elif mode == "rough":
             for key in tone_indicators: # "lyrics" : ["/l","/ly","/lyr"]
                 for indicator in tone_indicators[key]: # ["/l","/ly","/lyr"]
                     if len(string.replace("/","")) > len(indicator.replace("/","")):
@@ -214,7 +211,7 @@ class ToneIndicator(commands.Cog):
             result_str += "\nDidn't send your message as public cause it would be spammy, having this many results."
         if len(result_str) > 1999    :
             result_str = "Your search returned too many results (discord has a 2000-character message length D:). Please search for something more specific."
-        await itx.response.send_message(result_str,ephemeral=not public)
+        await ctx.message.reply(result_str)
 
 async def setup(client):
     # client.add_command("toneindicator")

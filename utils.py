@@ -281,23 +281,10 @@ class CustomHelpCommand(commands.help.HelpCommand):
         lines.append("```")
         return "\n".join(lines)
 
-    async def filter_commands(self, context: commands.Context, commands: list[commands.Command]):
-        filtered: list[commands.Command] = []
-        for command in commands:
-            try:
-                if await context.can_run(command):
-                    filtered.append(command)
-            except Exception:
-                pass
-        return filtered
-    
-    async def group_commands(self, context: commands.Context, commands: list[commands.Command]):
-        cogs: dict[commands.Cog, list[commands.Command]] = {}
-        for command in commands:
-            cogs.setdefault(command.cog, []).append(command)
-        return cogs
-
     async def handle_no_command_found(self, ctx: commands.Context, name: str):
+        if name == "usage":
+            await ctx.message.reply("TODO: add usage command") #TODO
+            return
         await ctx.message.reply(f"Command `{name}` not found.")
 
     async def handle_no_cog_found(self, ctx: commands.Context, name: str):
@@ -561,3 +548,14 @@ async def executed_in_dms(ctx: commands.Context = None,
         await id_object.send("This command is unavailable in DMs", ephemeral=True)
         return True
     return False
+
+def safe_string(string: str):
+    index = 0
+    while index < len(string):
+        if string[index] == ">":
+            # if matching (regex) /[^\\]+>/g (> followed by no backslash)
+            if index != 0 and string[index-1] != "\\":
+                string = string[:index] + '\\' + string[index:]
+                index += 1 # increment 1 because string length got 1 longer
+        index += 1
+    return string
