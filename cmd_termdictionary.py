@@ -19,11 +19,11 @@ class TermDictionary(commands.Cog):
         "parameters":{
             "term":{
                 "description":"This is your search query. What do you want to look for?",
-                "type":"string (word or words)"
+                "type": CustomCommand.template("str", wrapped=True)
             },
             "source":{
                 "description":"Where do you want to search? Online? Custom Dictionary?",
-                "type":"number",
+                "type": CustomCommand.template("int", kwarg="source", pre_defined=True),
                 "accepted values":[
                     "Source should be a number from `1` to `8`:",
                     "Source `2` checks the custom dictionary",
@@ -335,21 +335,21 @@ class TermDictionary(commands.Cog):
 
     @dictionary_staff.command(usage={
         "description":"Add a dictionary entry for a word!",
-        "usage":"dictionary_staff define \"<term>\" \"<definition>\" \"<synonym1>, <synonym2>, ...\"",
+        "usage":"dictionary_staff define \"<term>\" \"<definition>\" \"[synonym1], [synonym2], [...]\"",
         "examples":"dictionary_staff define \"Hormone Replacement Therapy\" \"is for hormones\" \"HRT, Estrogen, Testosterone\"",
         "parameters":{
             "term":{
                 "description":"This is the main word for the dictionary entry: Egg, Hormone Replacement Therapy (HRT), (This is case sensitive)",
-                "type":"case-sensitive string (word or words) (surrounded by quotes if you want multiple words)",
+                "type": CustomCommand.template("str", case_sensitive=True, wrapped=False)
             },
             "definition":{
                 "description":"Give this term a definition",
-                "type":"string (word or words) (surrounded by quotes if you want multiple words)",
+                "type": CustomCommand.template("str", wrapped=False)
             },
             "synonyms":{
                 "description":"Add synonyms (SEPARATE WITH \",\")",
-                "type":"list of strings (word or words, separated by a comma)",
-                "default":"` ` (nothing)"
+                "type": CustomCommand.template("list[str]", optional=True),
+                "default":"` `(nothing)"
             }
         }}, cls=CustomCommand)
     async def define(self, ctx: commands.Context, term: str, definition: str, synonyms: str = ""):
@@ -398,11 +398,11 @@ class TermDictionary(commands.Cog):
         "parameters":{
             "term":{
                 "description":"This is the main word for the dictionary entry (case sensitive) Example: Egg, Hormone Replacement Therapy (HRT), etc.",
-                "type":"case-sensitive string (word or words) (surrounded by quotes if you want multiple words)"
+                "type": CustomCommand.template("string", case_sensitive=True, wrapped=False)
             },
             "definition":{
                 "description":"Redefine this definition",
-                "type":"string (word or words) (surrounded by quotes if you want multiple words)"
+                "type": CustomCommand.template("string", wrapped=False)
             }
         }
     })
@@ -432,7 +432,7 @@ class TermDictionary(commands.Cog):
         "parameters":{
             "term":{
                 "description":"What word do you need to undefine (case sensitive). Example: Egg, Hormone Replacement Therapy (HRT), etc",
-                "type":"case-sensitive string (word or words) (surrounded by quotes if you want multiple words)"
+                "type": CustomCommand.template("string", case_sensitive=True, wrapped=False)
             }
         }
     })
@@ -463,16 +463,16 @@ class TermDictionary(commands.Cog):
         "parameters":{
             "term":{
                 "description":"This is the main word for the dictionary entry (case sens.) Example: Egg, Hormone Replacement Therapy (HRT), etc.",
-                "type":"string (word or words) (surrounded by quotes if you want multiple words)"
+                "type": CustomCommand.template("str", wrapped=False)
             },
             "mode":{
                 "description":"This is the main word for the dictionary entry (case sens.) Example: Egg, Hormone Replacement Therapy (HRT), etc.",
-                "type":"pre-defined string (word) (case-insensitive)",
+                "type": CustomCommand.template("word", pre_defined=True, case_sensitive=False),
                 "accepted values":"\"add\", \"remove\""
             },
             "synonym":{
                 "description":"Which synonym to add/remove?",
-                "type":"string (word or words) (surrounded by quotes if you want multiple words)"
+                "type": CustomCommand.template("str", wrapped=False)
             }
         }
     })

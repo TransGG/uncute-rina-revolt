@@ -164,6 +164,59 @@ class CustomCommand(commands.Command):
         super().__init__(callback, name, aliases, usage)
         self._error_handler = type(self).error_handler
     
+    @staticmethod
+    def template(type, optional: str | None = None, kwarg: str | None = None, pre_defined: bool = False, 
+                 wrapped: bool | None = None, case_sensitive: bool | None = None):
+        """
+        Get pre-built string for command usage parameter "Type"
+
+        ### Parameters
+        type: :class:`str`
+            one of: "str", "list[str]", "list[int]", "int"
+        optional: :class:`bool` | None
+            Whether the command is optional (default: None)
+        kwarg: :class:`str` | `None`
+            The name of the parameter if it's a keyword argument (default: None)
+        pre_defined (optional): :class:`bool`
+            Whether the parameter has pre-defined variables you have to pick from (default: False)
+        wrapped (optional): :class:`bool` | `None`
+            Whether you can pass multiple words to the parameter without quotation marks (default: None)
+        case_sensitive (optional): :class:`bool` | `None`
+            Whether the parameter is case-sensitive (default: None)
+        """
+        parts = []
+        if pre_defined:
+            parts.append("pre-defined")
+        if case_sensitive:
+            parts.append("case-sensitive")
+        if kwarg:
+            parts.append("keyword argument (`{kwarg} = ...`):")
+        if optional:
+            parts.append("(optional)")
+
+
+        if type is "word":
+            parts.append("string (word)")
+        elif type is "str":
+            parts.append("string (word or words)")
+        elif type is "list[str]":
+            parts.append("list of strings (word or words, separated by a comma)")
+        elif type is "list[int]":
+            parts.append("list of numbers (separated by a comma)")
+        elif type is "int":
+            parts.append("number")
+            
+        
+        if wrapped:
+            parts.append("(no quotes necessary)")
+        if wrapped is False:
+            parts.append("(surrounded by quotes if you want multiple words)")
+        if case_sensitive == False:
+            parts.append("(case-insensitive)")
+        
+        return ' '.join(parts)
+
+
     async def error_handler(self, ctx: commands.Context, error: Exception):
         #This should handle replying to the author and log to console.
         ctx.client.dispatch("command_error", ctx,  error)
