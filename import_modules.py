@@ -7,7 +7,7 @@ class PrintProgress:
         print(f"[{self.progress*'#'}+{(self.max-self.progress-1)*' '}] Importing modules:   {name}{' '*(50-len(name))}\033[F")
         self.progress += 1
 
-progress = PrintProgress(22)
+progress = PrintProgress(26)
 progress.increment("datetime")
 from datetime import datetime, timedelta, timezone # for checking if user is older than 7days (in verification
 program_start = datetime.now()
@@ -59,6 +59,8 @@ progress.increment("traceback")
 import traceback
 progress.increment("logging")
 import logging
+progress.increment("typing/TypedDict")
+from typing import TypedDict, Optional
 progress.increment("utils")
 from utils import is_verified, is_staff, is_admin, debug, log_to_guild, executed_in_dms, safe_string, \
     PagedMessage, CustomEmbed, CustomGroup, CustomHelpCommand, CustomCommand

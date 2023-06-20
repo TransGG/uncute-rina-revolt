@@ -126,11 +126,54 @@ class CustomEmbed(revolt.SendableEmbed):
         deepcopy.set_footer(self.footer)
         return deepcopy
 
+class UsageDict(TypedDict):
+    usage: Optional[str]
+    parameters: Optional[dict[str, dict[str, str | list[str]]]]
+    examples: Optional[str | list[str]]
+    # {"term":{"description":"str","accepted values":["str","str","str"]}}
+
+class CustomCommand(commands.Command):
+    """Class for holding info about a command.
+
+    Parameters
+    ----------
+    callback: Callable[..., Coroutine[Any, Any, Any]]
+        The callback for the command
+    name: :class:`str`
+        The name of the command
+    aliases (optional): :class:`str`
+        The aliases of the command. (default: None)
+    parent (optional): :class:`Group`
+        The parent of the command if this command is a subcommand. (default: None)
+    cog (optional): :class:`Cog`
+        The cog the command is apart of. (default: None)
+    usage (optional): :class:`str` | :class:`list`
+        The usage string for the command. (default: None)
+    """
+    def __init__(self, callback, name: str, aliases: list[str], usage: str | UsageDict | None = None):
+        if usage is None:
+            usage = UsageDict()
+        elif type(usage) is str:
+            usage = UsageDict({"usage":usage})
+        elif type(usage) is dict and \
+             type(usage) is not UsageDict:
+            usage = UsageDict(usage)
+        else:
+            print(type(usage))
+            raise
+        super().__init__(callback, name, aliases, usage)
+        self._error_handler = type(self).error_handler
+    
+    async def error_handler(self, ctx: commands.Context, error: Exception):
+        #This should handle replying to the author and log to console.
+        ctx.client.dispatch("command_error", ctx,  error)
+        # traceback.print_exception(type(error), error, error.__traceback__)
+
 class CustomGroup(commands.Group):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def command(self, *, name = None, aliases: list[str] = None, cls = commands.Command, usage: str | None = None):
+    def command(self, *, name = None, aliases: list[str] = None, cls = CustomCommand, usage: str | None = None):
         """A decorator that turns a function into a :class:`Command` and registers the command as a subcommand.
 
         Parameters
@@ -157,7 +200,7 @@ class CustomGroup(commands.Group):
         return inner
 
 class CustomHelpCommand(commands.help.HelpCommand):
-    def get_short_command_description(self, command: commands.Command):
+    def get_short_command_description(self, command: CustomCommand):
         """
         Get short description of a given command (first or second line)
         
@@ -180,12 +223,12 @@ class CustomHelpCommand(commands.help.HelpCommand):
                 # get second line of description if there is more than 1 line in the description, and store it in `desc`
                 pass
             else:
-                desc = self.trim_command_attribute(command)
+                desc = self.trim_attribute(command)
         else:
             desc = "No description"
         return desc.strip()
     
-    def trim_command_attribute(self, command: commands.Command, _type: str = "description"):
+    def trim_attribute(self, parent, _type: str = "description"):
         """
         Get / trim a string (docstring) from a command attribute
 
@@ -197,7 +240,7 @@ class CustomHelpCommand(commands.help.HelpCommand):
             The attribute to use (default: "description", can be "usage" too)
         """
         # largely copied from PEP-0257
-        attr = getattr(command, _type)
+        attr = getattr(parent, _type)
         if not attr:
             return "No description"
         lines = attr.split("\n")
@@ -218,9 +261,9 @@ class CustomHelpCommand(commands.help.HelpCommand):
         while trimmed and not trimmed[0]:
             trimmed.pop(0)
         # add 2-space indent
-        return '\n'.join(["  "+line for line in trimmed])
+        return '\n'.join(trimmed)
 
-    async def create_bot_help(self, ctx: commands.Context, commands: dict[commands.Cog | None, list[commands.Command]]):
+    async def create_bot_help(self, ctx: commands.Context, commands: dict[commands.Cog | None, list[CustomCommand]]):
         lines = ["```"]
         for cog, cog_commands in commands.items():
             cog_lines: list[str] = []
@@ -235,22 +278,80 @@ class CustomHelpCommand(commands.help.HelpCommand):
         lines.append("```")
         return "\n".join(lines)
 
-    async def create_command_help(self, ctx: commands.Context, command: commands.Command):
-        lines = ["```"]
-        lines.append(f"{command.name}:")
-        lines.append(f"  ### Usage\n"
-                     f"  ---------\n"
-                     f"{self.trim_command_attribute(command, _type='usage') if hasattr(command, 'usage') else command.get_usage()}")
+    async def create_command_help(self, ctx: commands.Context, command: CustomCommand):
+        # ## Dictionary command
+        # ### Usage
+        # `!dictionary <term...> source=[source]`
+        # For usage help, use !help usage.
+        #
+        # ### Parameters
+        # `term`
+        # - Description: This is your search query. What do you want to look for?
+        # - Type: string (word or words)
+        # ---
+        # `source`
+        # - Description: Where do you want to search? Online? Custom Dictionary?
+        # - Type: number
+        # - Accepted values:
+        #     - Source should be a number from `1` to `8`:
+        #     - Source `2` checks the custom dictionary
+        #     - Source `4` checks en.pronouns.page
+        #     - Source `6` checks dictionaryapi.dev
+        #     - Source `8` checks UrbanDictionary.com
+        #     - Source `1` (default) will go through sources `2`, `4`, `6`, and `8`, until it finds a result."
+        # - Default: `1`
+        #
+        # ### Aliases
+        # (none, actually)
+        #
+        # ### Examples
+        # `!dictionary fantasy`
+        # `!dictionary high heels`
+        if type(command) is not CustomCommand:
+            return "Wrong class"
+        lines = []
+        prefix = (await ctx.client.get_prefix(ctx.message))[0]
+        lines.append(f"## {command.name.capitalize()} command")
+        usage: UsageDict = command.usage
+        if "description" in usage:
+            lines.append(usage["description"])
+            if "usage" in usage or "parameters" in usage or command.aliases or "examples" in usage:
+                lines.append("")
+        if "usage" in usage:
+            lines.append(f"### Usage\n"
+                        f"`{prefix}{usage.get('usage')}`\n"
+                        f"For usage help, use !help usage.")
+        if "parameters" in usage:
+            lines.append("\n### Parameters")
+            for param in usage["parameters"]:
+                lines.append(f"`{param}`")
+                for detail in usage["parameters"][param]:
+                    if type(value := usage["parameters"][param][detail]) is str:
+                        lines.append(f"- {detail.capitalize()}: {value}")
+                    elif type(value) is list:
+                        lines.append(f"- {detail.capitalize()}:")
+                        for item in value:
+                            lines.append(f"  - {item}")
+                if len(usage["parameters"]) > 1:
+                    lines.append(f"---") # otherwise you get a weird indent..
+        
         if command.aliases:
-            lines.append(f"\n"
-                         f"  ### Aliases\n"
-                         f"  -----------\n"
-                         f"  {', '.join(command.aliases)}")
-        if command.description:
-            lines.append("\n" +
-                         self.trim_command_attribute(command))#self.get_command_description(command))
+            lines.append(f"### Aliases\n"
+                         f"{', '.join(command.aliases)}")
+            if "examples" in usage:
+                lines.append("")
 
-        lines.append("```")
+        if "examples" in usage:
+            if type(usage["examples"]) is str:
+                lines.append(f"### Example\n`{usage['examples']}`")
+            elif type(usage["examples"]) is list:
+                if len(usage["examples"]) == 1:
+                    lines.append(f"### Example\n`{usage['examples'][0]}`")
+                elif len(usage["examples"]) > 1:
+                    lines.append(f"### Examples")
+                    for example in usage["examples"]:
+                        lines.append(f"`{prefix}{example}`")
+
         return "\n".join(lines)
 
     async def create_group_help(self, ctx: commands.Context, group: commands.Group):
@@ -290,33 +391,6 @@ class CustomHelpCommand(commands.help.HelpCommand):
     async def handle_no_cog_found(self, ctx: commands.Context, name: str):
         await ctx.message.reply(f"Cog `{name}` not found. (not sure when this would be called. Please ping {Bot.bot_owner.mention} so I learn :D)")
 
-class CustomCommand(commands.Command):
-    """Class for holding info about a command.
-
-    Parameters
-    ----------
-    callback: Callable[..., Coroutine[Any, Any, Any]]
-        The callback for the command
-    name: :class:`str`
-        The name of the command
-    aliases (optional): :class:`str`
-        The aliases of the command. (default: None)
-    parent (optional): :class:`Group`
-        The parent of the command if this command is a subcommand. (default: None)
-    cog (optional): :class:`Cog`
-        The cog the command is apart of. (default: None)
-    usage (optional): :class:`str`
-        The usage string for the command. (default: None)
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._error_handler = type(self).error_handler
-    
-    async def error_handler(self, ctx: commands.Context, error: Exception):
-        #This should handle replying to the author and log to console.
-        ctx.client.dispatch("command_error", ctx,  error)
-        ctx.client.on_command_error(ctx, error)
-        # traceback.print_exception(type(error), error, error.__traceback__)
 
 
 def setup(client: Bot):
