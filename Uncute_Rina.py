@@ -266,14 +266,12 @@ else:
                     return
 
                 view = self.get_view(message)(content)
-
                 try:
                     command_name = view.get_next_word()
                 except StopIteration:
                     return
 
                 context_cls = self.get_context(message)
-
                 try:
                     command = self.get_command(command_name)
                 except KeyError:
@@ -281,7 +279,6 @@ else:
                     return self.dispatch("command_error", context, commands.errors.CommandNotFound(command_name))
 
                 context = context_cls(command, command_name, view, message, self)
-
                 try:
                     self.dispatch("command", context)
 
@@ -290,15 +287,12 @@ else:
 
                     if not await context.can_run():
                         raise commands.errors.CheckError(f"the check(s) for the command failed")
-
                     output = await context.invoke()
                     self.dispatch("after_command_invoke", context, output)
 
                     return output
                 except Exception as e:
                     await command._error_handler(command.cog or self, context, e)
-                    self.dispatch("command_error", context, e)
-
             else:
                 await self._on_message(message)
 
@@ -478,7 +472,6 @@ else:
         async with revolt.utils.client_session() as session:
             start = datetime.now()
             logging.getLogger("revolt").setLevel(logging.WARNING)
-            global client
             client = Bot(session=session, token=token, help_command=CustomHelpCommand())
             client.on_message_events.append(client.on_message_kill_test)
             debug(f"[##      ]: Started Bot"+" "*30,color="green")
@@ -488,7 +481,7 @@ else:
                 "cmd_customvcs",
                 # "cmd_emojistats",
                 # "cmd_getmemberdata",
-                # "cmd_pronouns",
+                "cmd_pronouns",
                 # "cmd_qotw",
                 # "cmd_tags",
                 "cmd_termdictionary",

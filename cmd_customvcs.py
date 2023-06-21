@@ -275,9 +275,41 @@ class CustomVcs(commands.Cog):
     #         ex_message = repr(ex).split("(", 1)[1][1:-2]
     #         await logChannel.send("Warning! >> "+ex_message+f" << {itx.user.nick or itx.user.name} ({itx.user.id}) tried to change {oldName} ({channel.id}) to {name}, but wasn't allowed to by discord, probably because it's in a banned word list for discord's discovery <@262913789375021056>")
 
-    # @commands.check(executed_in_dms)
-    @commands.command(cls=CustomCommand)
-    async def editguildinfo(self, ctx: commands.Context, mode: str, option: str, value: str = None):
+    @commands.command(cls=CustomCommand, usage={
+        "description":"View or edit the guild info / Rina's settings in a server",
+        "usage":"editguildinfo <mode> <option> [value...]",
+        "examples":[
+            "editguildinfo view 22",
+            "editguildinfo edit 12 :01H34AHWQWN1FK7TP4SV47MAFR:",
+            "editguildinfo edit 33 7"
+            "editguildinfo edit 34 01H37EEV43YG6DR3GGSX82V9Z3, 01H32NEA45Y54DR0CGDX8151AG",
+        ],
+        "parameters":{
+            "mode":{
+                "description":"Do you want to edit, or just see the values of the guild settings?",
+                "type": CustomCommand.template("str", pre_defined=True, case_sensitive=False),
+                "accepted values":"\"view\", \"edit\""
+            },
+            "option":{
+                "description":"What value do you want to edit?",
+                "type": CustomCommand.template("int", pre_defined=True),
+                "accepted values":[
+                    "Select one of the following to see what options you can pick from"
+                    "`01` : Help: Main server settings"
+                    "`02` : Help: Custom Voice Channels"
+                    "`03` : Help: Starboard settings"
+                    "`04` : Help: Bumping-related settings"
+                ],
+                "additional info":"If you pick a value that doesn't match, you'll see an 'accepted values' message"
+            },
+            "value":{
+                "description":"The value to change the option to. Is redundant if you're only viewing",
+                "type": CustomCommand.template("any", wrapped=True, optional=True),
+                "additional info":"If your input doesn't match the expected type (from the selected option), you'll see an 'expected type' message"
+            }
+        }
+    })
+    async def editguildinfo(self, ctx: commands.Context, mode: str, option: str, *value):
         """
         View or edit the guild info / Rina's settings in a server
 
@@ -295,13 +327,13 @@ class CustomVcs(commands.Cog):
         if not is_admin(ctx):
             await ctx.send("You don't have sufficient permissions to execute this command! (don't want you to break the bot ofc.)")
             return
-        
-        if mode.lower() == "view":
+        value = ' '.join(value)
+        if (mode := mode.lower()) == "view":
             mode = 1
-        elif mode.lower() == "edit":
+        elif mode == "edit":
             mode = 2
         else:
-            await ctx.send(f"Your `mode` argument has to be 'view' or 'edit', not '{mode.lower()}'")
+            await ctx.send(f"Your `mode` argument has to be 'view' or 'edit', not '{safe_string(mode)}'")
 
         
         options = {

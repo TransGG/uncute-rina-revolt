@@ -7,7 +7,32 @@ class TodoList(commands.Cog):
         RinaDB = client.RinaDB
         self.client = client
 
-    @commands.command(cls=CustomCommand)
+    @commands.command(cls=CustomCommand, usage={
+        "description":"Add or remove a to-do! or check your to-do list!",
+        "usage":"todo <mode> [todo...]",
+        "examples":[
+            "todo add clean the floor when i get home",
+            "todo add make english homework for Alex",
+            "todo check"
+            "todo remove 2",
+        ],
+        "parameters":{
+            "mode":{
+                "description":"Do you want to add, remove a to-do item, or check your current items?",
+                "type": CustomCommand.template("str", pre_defined=True, case_sensitive=False),
+                "accepted values":"\"add\", \"remove\", \"check\""
+            },
+            "todo":{
+                "description":"Add/remove a todo-list item.",
+                "type": [CustomCommand.template("str", wrapped=True),
+                         CustomCommand.template("int")],
+                "additional info":[
+                    "if removing from your to-do list, use the ID of the item (found with 'todo check')",
+                    "if checking your to-do list, this argument does nothing."
+                ]
+            }
+        }
+    })
     async def todo(self, ctx: commands.Context, mode: str, *todo):
         """
         Add/remove/check your to-do list!

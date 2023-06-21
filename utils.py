@@ -90,6 +90,32 @@ reaction_messages: dict[str, PagedMessage] = {}
 
 class CustomEmbed(revolt.SendableEmbed):
     def __init__(self, *args, **kwargs):
+        """
+        Represents an embed that can be sent in a message, you will never receive this, you will receive :class:`Embed`.
+
+        Attributes
+        -----------
+        title: Optional[:class:`str`]
+            The title of the embed
+
+        description: Optional[:class:`str`]
+            The description of the embed
+
+        media: Optional[:class:`str`]
+            The file inside the embed, this is the ID of the file, you can use :meth:`Client.upload_file` to get an ID.
+
+        icon_url: Optional[:class:`str`]
+            The url of the icon url
+
+        colour: Optional[:class:`str`]
+            The embed's accent colour, this is any valid `CSS color <https://developer.mozilla.org/en-US/docs/Web/CSS/color_value>`_
+
+        url: Optional[:class:`str`]
+            URL for hyperlinking the embed's title
+        """
+        if "color" in kwargs:
+            kwargs["colour"] = kwargs["color"]
+            del kwargs["color"]
         super().__init__(*args, **kwargs)
         self.footer: str | None = None
 
@@ -172,7 +198,7 @@ class CustomCommand(commands.Command):
 
         ### Parameters
         type: :class:`str`
-            one of: "str", "list[str]", "list[int]", "int"
+            one of: "word", "str", "list[str]", "list[int]", "int", "any", "mention or ID"
         optional: :class:`bool` | None
             Whether the command is optional (default: None)
         kwarg: :class:`str` | `None`
@@ -190,21 +216,25 @@ class CustomCommand(commands.Command):
         if case_sensitive:
             parts.append("case-sensitive")
         if kwarg:
-            parts.append("keyword argument (`{kwarg} = ...`):")
+            parts.append(f"keyword argument (`{kwarg}=...`):")
         if optional:
             parts.append("(optional)")
 
 
-        if type is "word":
+        if type == "word":
             parts.append("string (word)")
-        elif type is "str":
+        elif type == "str":
             parts.append("string (word or words)")
-        elif type is "list[str]":
+        elif type == "list[str]":
             parts.append("list of strings (word or words, separated by a comma)")
-        elif type is "list[int]":
+        elif type == "list[int]":
             parts.append("list of numbers (separated by a comma)")
-        elif type is "int":
+        elif type == "int":
             parts.append("number")
+        elif type == "any":
+            parts.append("any")
+        elif type == "mention or ID":
+            parts.append("mention (or ID)")
             
         
         if wrapped:
@@ -317,19 +347,40 @@ class CustomHelpCommand(commands.help.HelpCommand):
         return '\n'.join(trimmed)
 
     async def create_bot_help(self, ctx: commands.Context, commands: dict[commands.Cog | None, list[CustomCommand]]):
-        lines = ["```"]
-        for cog, cog_commands in commands.items():
-            cog_lines: list[str] = []
-            cog_lines.append(f"{cog.qualified_name if cog else 'No cog'}:")
+        # lines = ["```"]
+        # for cog, cog_commands in commands.items():
+        #     cog_lines: list[str] = []
+        #     cog_lines.append(f"{cog.qualified_name if cog else 'No cog'}:")
 
-            for command in cog_commands:
-                desc = self.get_short_command_description(command)
-                cog_lines.append(f"  {command.name} - {desc}")
+        #     for command in cog_commands:
+        #         desc = self.get_short_command_description(command)
+        #         cog_lines.append(f"  {command.name} - {desc}")
 
-            lines.append("\n".join(cog_lines))
+        #     lines.append("\n".join(cog_lines))
 
-        lines.append("```")
-        return "\n".join(lines)
+        # lines.append("```")
+        c: Bot = ctx.client
+        return f"""Hi there! This bot has a whole bunch of commands. Let me introduce you to some:
+        {c.get_command_mention('add_poll_reactions')}: Add an up-/downvote emoji to a message (for voting)
+        {c.get_command_mention('commands')} or {c.get_command_mention('help')}: See this help page
+        {c.get_command_mention('compliment')}: Rina can compliment others (matching their pronoun role)
+        {c.get_command_mention('convert_unit')}: Convert a value from one to another! Distance, speed, currency, etc.
+        {c.get_command_mention('dictionary')}: Search for an lgbtq+-related or dictionary term!
+        {c.get_command_mention('equaldex')}: See LGBTQ safety and rights in a country (with API)
+        {c.get_command_mention('math')}: Ask Wolfram|Alpha for math or science help
+        {c.get_command_mention('nameusage gettop')}: See how many people are using the same name
+        {c.get_command_mention('pronouns')}: See someone's pronouns or edit your own
+        {c.get_command_mention('qotw')} and {c.get_command_mention('developer_request')}: Suggest a Question Of The Week or Bot Suggestion to staff
+        {c.get_command_mention('reminder reminders')}: Make or see your reminders
+        {c.get_command_mention('roll')}: Roll some dice with a random result
+        {c.get_command_mention('tag')}: Get information about some of the server's extra features
+        {c.get_command_mention('todo')}: Make, add, or remove items from your to-do list
+        {c.get_command_mention('toneindicator')}: Look up which tone tag/indicator matches your input (eg. /srs)
+
+        Make a custom voice channel by joining "Join to create VC" (use {c.get_command_mention('tag')} `tag:customvc` for more info)
+        {c.get_command_mention('editvc')}: edit the name or user limit of your custom voice channel
+        {c.get_command_mention('vctable about')}: Learn about making your voice chat more on-topic!
+        """
 
     async def create_command_help(self, ctx: commands.Context, command: CustomCommand):
         # ## Dictionary command
@@ -437,7 +488,15 @@ class CustomHelpCommand(commands.help.HelpCommand):
 
     async def handle_no_command_found(self, ctx: commands.Context, name: str):
         if name == "usage":
-            await ctx.message.reply("TODO: add usage command") #TODO
+            await ctx.message.reply(
+                "The usage layout of commands is as follows:\n"
+                "- `<argument>` is a required argument\n"
+                "- `[argument]` is an optional argument\n"
+                "- `argument=[argument]` is an optional keyword argument. To set it, use `argument=1` or `argument:1`, for example\n"
+                "- `<argument...>` is a required wrapped argument. This means that you can use this parameter without needing any "
+                "quotation marks. This and any following words will be seen as part of the same argument"
+                "- `[argument...]` is an optional wrapped argument. Identical to the one above, but this one does not need to be given (it's optional)"
+            )
             return
         await ctx.message.reply(f"Command `{name}` not found.")
 
