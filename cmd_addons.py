@@ -628,10 +628,11 @@ class SearchAddons(commands.Cog):
 
 class OtherAddons(commands.Cog):
     def __init__(self, client: Bot):
-        global RinaDB
+        global RinaDB, asyncRinaDB
         client.on_message_events.append(self.on_message_addons)
         self.client = client
         RinaDB = client.RinaDB
+        asyncRinaDB = client.asyncRinaDB
         self.headpatWait = 0
 
     async def on_message_addons(self, message: revolt.Message):
@@ -1058,7 +1059,7 @@ class OtherAddons(commands.Cog):
     })
     async def roll(self, ctx: commands.Context, dice: str, faces: str, mod: str = None, *advanced: str):
         if (advanced := ' '.join(advanced)) == "":
-            advanced == None
+            advanced = None
         
         if advanced is None:
             errors = []
@@ -1076,7 +1077,8 @@ class OtherAddons(commands.Cog):
                 errors.append("'faces' must be a valid number!")
             if mod:
                 try:
-                    mod = float(mod)
+                    if (mod := float(mod)) == int(mod):
+                        mod = int(mod)
                 except ValueError:
                     errors.append("'mod' must be a valid (decimal) number!")
             if errors:
@@ -1477,6 +1479,163 @@ class OtherAddons(commands.Cog):
                 await ctx.message.reply(content=":warning: Adding emojis failed!")
         cmd_mention = self.client.get_command_mention("add_poll_reactions")
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) used {cmd_mention} on message {jump_msg(message)}")
+
+    @commands.command(cls=CustomCommand, usage={
+        "description":"Ping a message!",
+        "usage":"pin [message] (or reply)",
+        "examples":[
+            "pin 01H3JX0010FRMEC9Q9DDQ69M4M",
+            "pin https://app.revolt.chat/server/01H2Y4Y97PW6584PHN1TAVN5WR/channel/01H2Y5CPKNF1EEV6P83EFGKBBV/01H3JX0DA4WDR9XZSV0BS96ZR1",
+            "pin (if replying)"
+        ],
+        "parameters":{
+            "message":{
+                "description":"the message to pin",
+                "type": CustomCommand.template("mention or ID", optional=True),
+                "additional info":"If you reply to a message, you can just use `!pin`, and it'll add the replied message to the pin list"
+            }
+        }
+    })
+    async def pin(self, ctx: commands.Context, message: str = None):
+        async def add_to_pins(message: revolt.Message):
+            # data = {
+            #    "channel_id" = message.channel.id
+            #    "messages" = [
+            #        "https://"
+            #    ]
+            # }
+            collection = asyncRinaDB["channel_pins"]
+            query = {"channel_id": message.channel.id}
+            data = await collection.find_one(query)
+            if data is None:
+                messages = []
+            else:
+                messages = data["messages"]
+
+            messages.append(jump_msg(message))
+            await collection.update_one(query, {"$set":{"messages":messages}}, upsert=True)
+
+        if not is_staff(ctx):
+            await ctx.message.reply("Only staff can pin messages!")
+            return
+
+        if message is None:
+            if not ctx.message.reply_ids:
+                cmd_mention = self.client.get_command_mention("help")
+                await ctx.message.reply(f"Please provide a message id, link, or reply to a message to pin it. Use {cmd_mention} `pin` for more info")
+            elif len(ctx.message.reply_ids) > 1:
+                await ctx.message.reply("Please pin only one message at a time!")
+            else:
+                msg = await ctx.channel.fetch_message(ctx.message.reply_ids[0])
+                await add_to_pins(msg)
+                await ctx.message.reply(f"Successfully added message ({msg.id}) to pins of channel {msg.channel.name} ({msg.channel.id})!")
+            return
+        
+        if message.startswith("http"):
+            #   0    1       2           3                 4                5                 6                        7
+            # https:/ /app.revolt.chat/server/01H2Y4Y64PW6584PHN1TAVN5WR/channel/01H2Y8CPKNF1EEV2P83EFGKBBV/01H3JX9DG5H3SV3MZJDJ3EQDP8
+            try:
+                _, _, _, _, server_id, _, channel_id, message_id = message.split("/")
+                if server_id != ctx.server_id:
+                    raise ValueError
+            except ValueError:
+                await ctx.message.reply("You didn't give a valid message link! Please make sure you pick a message in this server!")
+                return
+            channel = ctx.server.get_channel(channel_id)
+        else:
+            channel = ctx.channel
+            message_id = message
+        if not isinstance(channel, revolt.TextChannel):
+            await ctx.message.reply("You can only pin in text channels! (not group dms or something idk. ping if mistake or smthn i guess)")
+            return
+        msg: revolt.Message = await channel.fetch_message(message_id)
+        await add_to_pins(msg)
+        await ctx.message.reply(f"Successfully added message ({msg.id}) to pins of <#{msg.channel.id}> ({msg.channel.id}))!")
+
+    @commands.command(cls=CustomCommand, usage={
+        "description":"Check the pins of a channel! (current channel)",
+        "usage":"pins [channel]",
+        "examples":"pins",
+        "parameters":{
+            "channel":{
+                "description":"the channel from which to retrieve pins",
+                "type": CustomCommand.template("mention or ID", optional=True),
+            }
+        }
+    })
+    async def pins(self, ctx: commands.Context, channel: str = None):
+        if channel:
+            for i in "<#>":
+                channel = channel.replace(i, "")
+            channel_id = channel
+        else:
+            channel_id = ctx.channel.id
+
+        collection = asyncRinaDB["channel_pins"]
+        query = {"channel_id": channel_id}
+        data = await collection.find_one(query)
+        if data is None:
+            await ctx.message.reply(f"This channel (<#{channel_id}>) has no pins!")
+        else:
+            messages = data["messages"]
+            await ctx.message.reply(
+                f"<#{channel_id}> has {len(messages)} pins:\n" +
+                '\n'.join(f"- `{i}` {messages[i]}" for i in range(len(messages)))
+            )
+
+    @commands.command(cls=CustomCommand, usage={
+        "description":"Unpin a message from a channel's pin list",
+        "usage":"unpin <pin_id> [channel]",
+        "examples":["unpin 2",
+                    "unpin 4 01H2Y5CDAGZ1CP9P69PHAHN8EJ"],
+        "parameters":{
+            "pin_id":{
+                "description":"The id of the pin in the channel, found with /pins [channel]",
+                "type": CustomCommand.template("int")
+            },
+            "channel":{
+                "description":"The channel from which to remove pins",
+                "type": CustomCommand.template("mention or ID", optional=True),
+            }
+        }
+    })
+    async def unpin(self, ctx: commands.Context, pin_id: str, channel_id: str = None):
+        if not is_staff(ctx):
+            await ctx.message.reply("Only staff can unpin messages!")
+            return
+        
+        if pin_id.isdecimal():
+            pin_id = int(pin_id)
+        else:
+            await ctx.message.reply(f"Your pin_id must be a number! Not '{safe_string(pin_id)}'. Get the pin ID from /pins")
+            return
+        if channel_id:
+            for i in "<#>":
+                channel_id = channel_id.replace(i, "")
+        else:
+            channel_id = ctx.channel.id
+
+        try:
+            self.client.get_channel(channel_id)
+        except LookupError:
+            await ctx.message.reply("Please keep your unpinning to your own servers please thanks. (or maybe the channel is uncached/unavailable for rina)")
+            return
+
+        collection = asyncRinaDB["channel_pins"]
+        query = {"channel_id": channel_id}
+        data = await collection.find_one(query)
+        if data is None:
+            await ctx.message.reply(f"This channel (<#{channel_id}>) has no pins! So you can unpin anything either!")
+        else:
+            messages = data["messages"]
+            try:
+                del messages[pin_id]
+            except IndexError:
+                await ctx.message.reply("Index out of range! Please make sure your Pin ID is correct (check /pins from the correct channel!)")
+                return
+            await collection.update_one(query, {"$set":{"messages":messages}}, upsert=True)
+            await ctx.message.reply(f"Successfully removed pin from <#{channel_id}> ({channel_id})!")
+
 
 def setup(client):
     client.add_cog(OtherAddons(client))
