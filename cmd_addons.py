@@ -718,8 +718,8 @@ class OtherAddons(commands.Cog):
                     "Awww. Thanks sweety, but you've got the wrong number",
                     ":joy: You *reaaally* think so? You've gotta be kidding me.",
                     "If you're gonna be spamming this, .. maybe #general isn't the best channel for that.",
-                    "You gotta praise those around you as well. "+(message.author.nick or message.author.name)+", for example, is very cute.",
-                    "Oh by the way, did I say "+(message.author.nick or message.author.name)+" was cute yet? I probably didn't. "+(message.author.nick or message.author.name)+"? You're very cute",
+                    "You gotta praise those around you as well. "+(message.author.nickname or message.author.name)+", for example, is very cute.",
+                    "Oh by the way, did I say "+(message.author.nickname or message.author.name)+" was cute yet? I probably didn't. "+(message.author.nickname or message.author.name)+"? You're very cute",
                     "Such nice weather outside, isn't it? What- you asked me a question?\nNo you didn't, you're just talking to youself.",
                     "".join(random.choice("acefgilrsuwnopacefgilrsuwnopacefgilrsuwnop;;  ") for _ in range(random.randint(10,25))), # 3:2 letters to symbols
                     "Oh I heard about that! That's a way to get randomized passwords from a transfem!",
@@ -731,7 +731,7 @@ class OtherAddons(commands.Cog):
                     "*And the oscar for cutest responses goes to..  YOU!!*",
                     "No I am not cute",
                     "k",
-                    (message.author.nick or message.author.name)+", stop lying >:C",
+                    (message.author.nickname or message.author.name)+", stop lying >:C",
                     "BAD!",
                     "You're also part of the cuties set",
                     "https://cdn.discordapp.com/emojis/920918513969950750.webp?size=4096&quality=lossless",
@@ -739,8 +739,8 @@ class OtherAddons(commands.Cog):
                     "Hey, you should be talking about yourself first! After all, how do you keep up with being such a cutie all the time?"]
                 respond = random.choice(responses)
                 if respond == "BAD!":
-                    await message.channel.send("https://cdn.discordapp.com/emojis/902351699182780468.gif?size=56&quality=lossless", allowed_mentions=discord.AllowedMentions.none())
-                await message.channel.send(respond, allowed_mentions=discord.AllowedMentions.none())
+                    await message.channel.send("https://cdn.discordapp.com/emojis/902351699182780468.gif?size=56&quality=lossless")
+                await message.channel.send(respond)
             else:
                 cmd_mention = self.client.get_command_mention("help")
                 msg = await message.channel.send(f"I use chat commands! Use {cmd_mention} and see what cool things might pop up!\nPS: If you're trying to call me cute: no, I'm not")
@@ -1481,7 +1481,7 @@ class OtherAddons(commands.Cog):
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) used {cmd_mention} on message {jump_msg(message)}")
 
     @commands.command(cls=CustomCommand, usage={
-        "description":"Ping a message!",
+        "description":"Pin a message to a channel!",
         "usage":"pin [message] (or reply)",
         "examples":[
             "pin 01H3JX0010FRMEC9Q9DDQ69M4M",
