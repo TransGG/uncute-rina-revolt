@@ -47,7 +47,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.0.12.0".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.0.14.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -117,7 +117,7 @@ else:
         RinaDB = RinaDB
         asyncRinaDB = asyncRinaDB
         prefixes = ["!"]
-        # staff_server_id = 981730502987898960
+        staff_server_id = "0"
         bot_owner: revolt.User # for AllowedMentions in on_appcommand_error()
 
         # "logging.WARNING" to remove annoying 'Scheduler started' message on sched.start()
@@ -299,11 +299,22 @@ else:
         on_message = process_commands
 
         on_reaction_add_events = []
-
         async def on_reaction_add(self, message: revolt.Message, user: revolt.User, emoji_id: str):
             for i in self.on_reaction_add_events:
                 await i(message, user, emoji_id)
 
+        on_member_join_events = []
+        async def on_member_join(self, member: revolt.Member):
+            for i in self.on_member_join_events:
+                await i(member)
+        on_member_update_events = []
+        async def on_member_update(self, oldmember: revolt.Member, member: revolt.Member):
+            for i in self.on_member_update_events:
+                await i(oldmember, member)
+        on_member_leave_events = []
+        async def on_member_leave(self, member: revolt.Member):
+            for i in self.on_member_leave_events:
+                await i(member)
         # Command event overwriting end
         # Bot commands
 
@@ -477,13 +488,13 @@ else:
             debug(f"[##      ]: Started Bot"+" "*30,color="green")
 
             extensions = [
-                # "cmd_addons",
+                "cmd_addons",
                 "cmd_customvcs",
                 # "cmd_emojistats",
                 # "cmd_getmemberdata",
                 "cmd_pronouns",
                 # "cmd_qotw",
-                # "cmd_tags",
+                "cmd_tags",
                 "cmd_termdictionary",
                 "cmd_todolist",
                 "cmd_toneindicator",

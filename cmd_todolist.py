@@ -50,7 +50,7 @@ class TodoList(commands.Cog):
                                         f"`mode:Check`!")
                 return
             if len(todo) > 500:
-                ctx.message.reply("I.. don't think having such a big to-do message is gonna be very helpful..")
+                await ctx.message.reply("I.. don't think having such a big to-do message is gonna be very helpful..")
                 return
             collection = RinaDB["todoList"]
             query = {"user": ctx.author.id}

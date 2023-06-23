@@ -281,7 +281,7 @@ class CustomVcs(commands.Cog):
         "examples":[
             "editguildinfo view 22",
             "editguildinfo edit 12 :01H34AHWQWN1FK7TP4SV47MAFR:",
-            "editguildinfo edit 33 7"
+            "editguildinfo edit 33 7",
             "editguildinfo edit 34 01H37EEV43YG6DR3GGSX82V9Z3, 01H32NEA45Y54DR0CGDX8151AG",
         ],
         "parameters":{
@@ -294,10 +294,10 @@ class CustomVcs(commands.Cog):
                 "description":"What value do you want to edit?",
                 "type": CustomCommand.template("int", pre_defined=True),
                 "accepted values":[
-                    "Select one of the following to see what options you can pick from"
-                    "`01` : Help: Main server settings"
-                    "`02` : Help: Custom Voice Channels"
-                    "`03` : Help: Starboard settings"
+                    "Select one of the following to see what options you can pick from",
+                    "`01` : Help: Main server settings",
+                    "`02` : Help: Custom Voice Channels",
+                    "`03` : Help: Starboard settings",
                     "`04` : Help: Bumping-related settings"
                 ],
                 "additional info":"If you pick a value that doesn't match, you'll see an 'accepted values' message"
@@ -398,9 +398,13 @@ class CustomVcs(commands.Cog):
             return
 
         if mode == 1:
-            value = await self.client.get_guild_info(ctx.server, options[option])
-            await ctx.send("Here is the value for " + options[option] + " in this guild (" + str(ctx.server_id) + "):\n\n" +
-                           str(value))
+            try:
+                value = await self.client.get_guild_info(ctx.server, options[option])
+                await ctx.send("Here is the value for " + options[option] + " in this guild (" + str(ctx.server_id) + "):\n\n" +
+                            str(value))
+            except KeyError:
+                await ctx.message.reply(f"No guild data found for {options[option]} in this guild!")
+                return
         if mode == 2:
             query = {"guild_id": ctx.server_id}
             collection = RinaDB["guildInfo"]
@@ -534,7 +538,7 @@ class CustomVcs(commands.Cog):
                         return
                     collection.update_one(query, {"$set": {options[option]: ch.id}}, upsert=True)
             except (LookupError, revolt.errors.HTTPError): #HTTPError from 'await fetch_', LookupError from 'get_' functions
-                await ctx.send("Your ID did not seem to be valid... Maybe I don't have access to see/use that!")
+                await ctx.message.reply("Your ID did not seem to be valid... Maybe I don't have access to see/use that!")
                 return
             
             await ctx.send(f"Edited value of '{options[option]}' successfully.")

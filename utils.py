@@ -110,6 +110,9 @@ class CustomEmbed(revolt.SendableEmbed):
         colour: Optional[:class:`str`]
             The embed's accent colour, this is any valid `CSS color <https://developer.mozilla.org/en-US/docs/Web/CSS/color_value>`_
 
+        color: Optional[:class:`str`]
+            Alias for colour
+
         url: Optional[:class:`str`]
             URL for hyperlinking the embed's title
         """
@@ -198,7 +201,7 @@ class CustomCommand(commands.Command):
 
         ### Parameters
         type: :class:`str`
-            one of: "word", "str", "list[str]", "list[int]", "int", "any", "mention or ID"
+            one of: "word", "str", "list[str]", "list[int]", "int", "any", "mention or ID", "ID"
         optional: :class:`bool` | None
             Whether the command is optional (default: None)
         kwarg: :class:`str` | `None`
@@ -235,6 +238,8 @@ class CustomCommand(commands.Command):
             parts.append("any")
         elif type == "mention or ID":
             parts.append("mention (or ID)")
+        elif type == "ID":
+            parts.append("ID")
             
         
         if wrapped:
@@ -361,26 +366,26 @@ class CustomHelpCommand(commands.help.HelpCommand):
         # lines.append("```")
         c: Bot = ctx.client
         return f"""Hi there! This bot has a whole bunch of commands. Let me introduce you to some:
-        {c.get_command_mention('add_poll_reactions')}: Add an up-/downvote emoji to a message (for voting)
-        {c.get_command_mention('commands')} or {c.get_command_mention('help')}: See this help page
-        {c.get_command_mention('compliment')}: Rina can compliment others (matching their pronoun role)
-        {c.get_command_mention('convert_unit')}: Convert a value from one to another! Distance, speed, currency, etc.
-        {c.get_command_mention('dictionary')}: Search for an lgbtq+-related or dictionary term!
-        {c.get_command_mention('equaldex')}: See LGBTQ safety and rights in a country (with API)
-        {c.get_command_mention('math')}: Ask Wolfram|Alpha for math or science help
-        {c.get_command_mention('nameusage gettop')}: See how many people are using the same name
-        {c.get_command_mention('pronouns')}: See someone's pronouns or edit your own
-        {c.get_command_mention('qotw')} and {c.get_command_mention('developer_request')}: Suggest a Question Of The Week or Bot Suggestion to staff
-        {c.get_command_mention('reminder reminders')}: Make or see your reminders
-        {c.get_command_mention('roll')}: Roll some dice with a random result
-        {c.get_command_mention('tag')}: Get information about some of the server's extra features
-        {c.get_command_mention('todo')}: Make, add, or remove items from your to-do list
-        {c.get_command_mention('toneindicator')}: Look up which tone tag/indicator matches your input (eg. /srs)
+{c.get_command_mention('add_poll_reactions')}: Add an up-/downvote emoji to a message (for voting)
+{c.get_command_mention('help')}: See this help page. Use {c.get_command_mention('help')} `<command>` for more info about a command.
+###### {c.get_command_mention('compliment')}: Rina can compliment others (matching their pronoun role)
+{c.get_command_mention('convert_unit')}: Convert a value from one to another! Distance, speed, currency, etc.
+{c.get_command_mention('dictionary')}: Search for an lgbtq+-related or dictionary term!
+###### {c.get_command_mention('equaldex')}: See LGBTQ safety and rights in a country (with API)
+###### {c.get_command_mention('math')}: Ask Wolfram|Alpha for math or science help
+###### {c.get_command_mention('nameusage gettop')}: See how many people are using the same name
+{c.get_command_mention('pronouns')}: See someone's pronouns or edit your own
+###### {c.get_command_mention('qotw')} and {c.get_command_mention('developer_request')}: Suggest a Question Of The Week or Bot Suggestion to staff
+{c.get_command_mention('reminder reminders')}: Make or see your reminders
+{c.get_command_mention('roll')}: Roll some dice with a random result
+{c.get_command_mention('tag')}: Get information about some of the server's extra features
+{c.get_command_mention('todo')}: Make, add, or remove items from your to-do list
+{c.get_command_mention('toneindicator')}: Look up which tone tag/indicator matches your input (eg. /srs)
 
-        Make a custom voice channel by joining "Join to create VC" (use {c.get_command_mention('tag')} `tag:customvc` for more info)
-        {c.get_command_mention('editvc')}: edit the name or user limit of your custom voice channel
-        {c.get_command_mention('vctable about')}: Learn about making your voice chat more on-topic!
-        """
+Make a custom voice channel by joining "Join to create VC" (use {c.get_command_mention('tag')} `tag:customvc` for more info)
+{c.get_command_mention('editvc')}: edit the name or user limit of your custom voice channel
+{c.get_command_mention('vctable about')}: Learn about making your voice chat more on-topic!
+"""
 
     async def create_command_help(self, ctx: commands.Context, command: CustomCommand):
         # ## Dictionary command
@@ -773,3 +778,10 @@ def safe_string(string: str):
                 index += 1 # increment 1 because string length got 1 longer
         index += 1
     return string
+
+def jump_msg(message: revolt.Message):
+    # https://app.revolt.chat/server/serverid/channel/channelid/messageid
+    try:
+        return f"https://app.revolt.chat/server/{message.server.id}/channel/{message.channel.id}/{message.id}"
+    except LookupError: # not in server
+        return f"https://app.revolt.chat/channel/{message.channel.id}/{message.id}"

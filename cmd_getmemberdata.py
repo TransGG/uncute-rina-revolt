@@ -23,22 +23,23 @@ async def add_to_data(member, type):
 class MemberData(commands.Cog):
     def __init__(self, client: Bot):
         global asyncRinaDB
+        client.on_member_join_events.append(self.on_member_join_log)
+        client.on_member_update_events.append(self.on_member_update_log)
+        client.on_member_leave_events.append(self.on_member_leave_log)
         self.client = client
         asyncRinaDB = client.asyncRinaDB
 
-    @commands.Cog.listener()
-    async def on_member_join(self, member):
+    async def on_member_join_log(self, member):
         await add_to_data(member, "joined")
 
-    @commands.Cog.listener()
-    async def on_member_remove(self, member):
+    async def on_member_leave_log(self, member):
         await add_to_data(member, "left")
 
-    @commands.Cog.listener()
-    async def on_member_update(self, before, after):
-        role = discord.utils.find(lambda r: r.name == 'Verified', before.guild.roles)
-        if role not in before.roles and role in after.roles:
-            await add_to_data(after, "verified")
+    async def on_member_update_log(self, before, after):
+        pass
+        # role = discord.utils.find(lambda r: r.name == 'Verified', before.guild.roles)
+        # if role not in before.roles and role in after.roles:
+        #     await add_to_data(after, "verified")
 
     @app_commands.command(name="getmemberdata",description="See joined, left, and recently verified users in x days")
     @app_commands.describe(upper_bound="Get data from [period] days ago",
