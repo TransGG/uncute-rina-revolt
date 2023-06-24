@@ -17,7 +17,7 @@ template = {
         "description":"A system for All Stars",
         "tag":"🌀",
         "color":"#00ff00", # embed color
-        "fronter":"enjww",
+        "fronter":"enjww", # member id
         # "avatar":"",
         "members":[
             {
@@ -45,7 +45,7 @@ class Member(TypedDict):
     server_name: Optional[str]
     description: Optional[str]
     pronouns: Optional[str]
-    color: Optional[str] # hex color
+    colour: Optional[str] # hex color
     birthday: Optional[str]
     proxy: Optional[str]
     avatar: Optional[str]
@@ -55,9 +55,10 @@ class System(TypedDict):
     id: str
     created_at: int
     name: Optional[str] # len(name) >= 2
+    display_name: Optional[str]
     description: Optional[str]
     tag: Optional[str]
-    color: Optional[str] # hex color
+    colour: Optional[str] # hex color
     fronter: Optional[str]
     avatar: Optional[str]
     members: Optional[list[Member]]
@@ -73,16 +74,21 @@ class NotFound(Exception):
     pass
 
 
-async def get_owner(ctx: commands.Context = None, id: str = None) -> OwnerData:
+async def get_owner(ctx: commands.Context | revolt.Message = None, id: str = None) -> OwnerData:
     """
     Get the system dictionary of a person from their ID
 
     ### Parameters
     --------------
-    ctx: :class:`commands.Context`
+    ctx: :class:`commands.Context` | :class:`revolt.Message`
         The context of the command. Used for getting a default owner ID if none given
     id (optional): :class:`str`
         The id of the user to get the system dictionary for
+
+    ### Raises
+    ----------
+    :class:`NotFound`
+        If no results with owner id
 
     ### Returns
     -----------
@@ -95,19 +101,24 @@ async def get_owner(ctx: commands.Context = None, id: str = None) -> OwnerData:
     query = {"owner_id": id}
     data: OwnerData|None = await collection.find_one(query)
     if data is None:
-        raise NotFound("Not found")
+        raise NotFound("No data for this owner id")
     return data
 
-async def get_system(ctx: commands.Context, id: str = None, owned=True) -> System:
+async def get_system(ctx: commands.Context | revolt.Message, id: str = None, owned=True) -> System:
     """
     Get a System from an id (or name (using ctx.author.id))
 
     ### Parameters
     --------------
-    ctx: :class:`commands.Context`
+    ctx: :class:`commands.Context` | :class:`revolt.Message`
         The context of the command. Used for getting a default owner ID for searching with name
     id (optional): :class:`str`
         The id of the system
+
+    ### Raises
+    ----------
+    :class:`NotFound`
+        If no data found for system id (note: if owned is True, it only checks for the system id that the owner owns)
 
     ### Returns
     -----------
@@ -130,13 +141,13 @@ async def get_system(ctx: commands.Context, id: str = None, owned=True) -> Syste
         raise NotFound("User does not have a system")
     return data["system"]
 
-async def get_system_from_member(ctx: commands.Context, name: str = None, id: str = None, owned=True) -> System:
+async def get_system_from_member(ctx: commands.Context | revolt.Message, name: str = None, id: str = None, owned=True, return_member=False) -> System:
     """
     Get a System from a system member's id (or name (using ctx.author.id))
 
     ### Parameters
     --------------
-    ctx: :class:`commands.Context`
+    ctx: :class:`commands.Context` | :class:`revolt.Message`
         The context of the command. Used for getting a default owner ID for searching with name
     name (optional): :class:`name`
         The name of the member (looks in ctx.author.id's system)
@@ -145,49 +156,69 @@ async def get_system_from_member(ctx: commands.Context, name: str = None, id: st
     owned (optional): :class:`bool`
         Whether to look for the executor's owned system or for anyone's (default: True)
 
+    ### Raises
+    ----------
+    :class:`NotFound`
+        If no members, no system, or no member with this id or name found
+
     ### Returns
     -----------
     :class:`System`
         A System dictionary from given name or id
     """
-    # assert bool(name) ^ bool(id) # name xor id given
+    assert name or id
     collection = asyncRinaDB["pluralkit_data"]
-    if owned:
-        query = {"owner_id": ctx.author.id}
-    else:
-        query = {}
+    error = 0
     if id:
         # get owner.system.members.id == id
-        query["system.members"] = {"$elemMatch":{"id":id.lower()}}
+        query = {"system.members":{"$elemMatch":{"id":id.lower()}}}
+        if owned:
+            query["owner_id"] = ctx.author.id
         data: OwnerData|None = await collection.find_one(query)
         if data is None:
-            raise NotFound("Member not found")
-        for member in data["system"]:
-            if member["id"].lower() == id.lower():
-                return data["system"]
+            error += 1
+        else:
+            for member in data["system"]["members"]:
+                if member["id"].lower() == id.lower():
+                    if return_member:
+                        return data["system"], member
+                    return data["system"]
     if name:
-        if not owned:
-            query = {"owner_id": ctx.author.id}
-        # get owner.system.members.name == name (case insensitive)
-        query["system.members"] = {"$elemMatch":{"name":name.lower()}}
+        # get owner.system.members.name == name (case sensitive)
+        query = {"owner_id": ctx.author.id,
+                 "system.members":{"$elemMatch":{"name":name}}}
         data: OwnerData|None = await collection.find_one(query)
         if data is None:
-            raise NotFound("Member not found")
-        for member in data["system"]["members"]:
-            if member["name"].lower() == name.lower():
-                return data["system"]
-    raise NotFound("No results")
+            error += 1
+        else:
+            for member in data["system"]["members"]:
+                if member["name"] == name:
+                    if return_member:
+                        return data["system"], member
+                    return data["system"]
+    if error: # no result
+        raise NotFound("Member not found")
+    # shouldn't happen cause it only returns positive values
+    # raise NotFound("No results")
 
-async def get_owner_from_system(name: str = None, id: str = None) -> OwnerData:
+async def get_owner_from_system(ctx: commands.Context | revolt.Message, name: str = None, id: str = None) -> OwnerData:
     """
     Get the system dictionary of a person from a server's ID or name
 
     ### Parameters
     --------------
+    ctx: :class:`commands.Context` | :class:`revolt.Message`
+        The context to get the ctx.author.id's system for getting the system name
     name (optional): :class:`name`
-        The name of the member (looks in ctx.author.id's system)
+        The name of the system (looks in ctx.author.id's system) (case sensitive)
     id (optional): :class:`str`
         The id of the system
+
+    ### Raises
+    ----------
+    :class:`NotFound`
+        If no system with this name or id found
+
     ### Returns
     -----------
     :class:`System`
@@ -202,13 +233,73 @@ async def get_owner_from_system(name: str = None, id: str = None) -> OwnerData:
         if data is None:
             error += 1
     if name and not error:
-        query = {"system.name":name.lower()}
+        query = {"owner_id": ctx.author.id, 
+                 "system.name":name}
         data: OwnerData|None = await collection.find_one(query)
         if data is None:
             error += 1
     if error: # no result
         raise NotFound("System not found")
     return data
+
+
+############################
+ #     Util functions     # 
+############################
+
+async def check_system(ctx: commands.Context, system_name_or_id: str) -> OwnerData | None:
+    """
+    Check if a user has a system (with this name/id)
+
+    ### Parameters
+    --------------
+    ctx: :class:`commands.Context`
+        The context of the user whose system to check, and who to reply to if no results.
+    system_name_or_id: :class:`str`
+        The name or id of the system to look for
+
+    ### Output
+    ----------
+    Sends message to user if no system found
+
+    ### Returns
+    -----------
+    :class:`NoneType`
+        If no system found, replies message to user.
+    :class:`OwnerData`
+        dictionary with owner_id and system that matches given name or id
+    """
+    try:
+        owner = await get_owner(ctx)
+    except NotFound:
+        await ctx.message.reply("You don't have a system yet, so you can't change/view its properties either!")
+        return
+    if owner["system"]["id"].lower() != system_name_or_id.lower() and \
+        owner["system"].get("name", "").lower() != system_name_or_id.lower():
+        await ctx.message.reply("The system id you provided was not the same as the system you own. Perhaps you mistyped something?\n"
+                                f"- System name: {safe_string(owner['system']['name'])}\n"
+                                f"- System id: {owner['system']['id']}\n"
+                                f"- Given name or id: {safe_string(system_name_or_id)}")
+        return
+    return owner
+
+async def check_member(ctx: commands.Context, member_name_or_id: str) -> Member | None:
+    try:
+        system = await get_system_from_member(ctx, name=member_name_or_id, id=member_name_or_id)
+    except NotFound:
+        await ctx.message.reply("I couldn't find that member in your system!")
+        return
+    
+    for member in system["members"]:
+        if member["id"] == member_name_or_id:
+            break
+    else:
+        for member in system["members"]:
+            if member["name"] == member_name_or_id:
+                break
+        else:
+            raise Exception("This shouldn't happen...?") # but it does help resolve 'unbound' typing check
+    return member
 
 class PluralKit(commands.Cog):
     def __init__(self, client: Bot):
@@ -217,6 +308,7 @@ class PluralKit(commands.Cog):
         asyncRinaDB = client.asyncRinaDB
         self.pk_data = asyncRinaDB["pluralkit_data"]
         self.client = client
+
 
     #############################
      #     System commands     # 
@@ -228,17 +320,26 @@ class PluralKit(commands.Cog):
             system = owner["system"]
             if system is None:
                 raise NotFound
+            
             description = "" if system.get("members") else "This system has no members"
-            embed = CustomEmbed(title=f"Members of `{system['id']}`", description=description)
+            display_name = ((system.get("display_name") or system.get("name") or "") + f" ({system['id']})").strip()
+            embed = CustomEmbed(title=f"Members of {display_name}", description=description)
+
             members = 0
             pages = []
             for member in system.get("members", []):
-                name = member["name"] + (f" ({member['display_name']})" if member["display_name"] else "")
-                description = "**ID**: " + member["id"]
+                name = member.get("display_name", None)
+                if name is None:
+                    name = member["name"]
+                else:
+                    name += " (" + member["name"] + ")"
+
+                description = "**ID**: `" + member["id"] + "`"
                 for key in member:
                     if key in ["name", "id", "display_name", "created_at"]:
                         continue
                     description += f"\n**{key.capitalize()}**: {member[key].capitalize()}"
+                
                 embed.add_field(name=name, value=description)
                 members += 1
                 if members % 3 == 0: # 3 members per page
@@ -269,18 +370,28 @@ class PluralKit(commands.Cog):
 
     @system_cmds.command(cls=CustomCommand, name="new", usage={
         "description":"Make a new system.",
-        "usage":"system new [name...]",
-        "examples":["system new Star System",
+        "usage":"system new [name] [display_name...]",
+        "examples":["system new starsystem Star System",
                     "system new"],
         "parameters":{
             "name":{
                 "description":"The name of your new system",
+                "type": CustomCommand.template("str", case_sensitive=True, wrapped=False),
+                "additional info": [
+                    "It's recommended to make this 1 word, because you can use it for all other commands",
+                    "You're better off setting the display name to multiple words rather than the system name.",
+                    "Use `system rename` to rename a system and `system displayname` to change the display name"
+                ]
+            },
+            "display_name":{
+                "description":"The name of your new system",
                 "type": CustomCommand.template("str", wrapped=True),
+                "note":"If you want a display name, you also have to give `name` a value, due to the way command input is read."
             }
         }
     })
-    async def new_system(self, ctx: commands.Context, *name: str):
-        name = ' '.join(name)
+    async def new_system(self, ctx: commands.Context, name: str = None, *display_name: str):
+        display_name = ' '.join(display_name)
         try:
             owner = await get_owner(id=ctx.author.id)
             if owner["system"]:
@@ -303,11 +414,16 @@ class PluralKit(commands.Cog):
         system = System(created_at=mktime(datetime.now().timetuple()), id=system_id)
         if name:
             system["name"] = name
+        if display_name:
+            system["display_name"] = display_name
         
         await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
                                       {"$set": {"system": system}}, upsert=True)
-        if name:
-            await ctx.message.reply(f"Created your system (named `{safe_string(name)}`) successfully! (id: `{system_id}`)")
+        if display_name: 
+            # Code could be simplified but this is probably the easiest to comprehend
+            await ctx.message.reply(f"Created your system ({safe_string(display_name)} (`{safe_string(name)}`)) successfully! (id: `{system_id}`)")
+        elif name:
+            await ctx.message.reply(f"Created your system (`{safe_string(name)}`) successfully! (id: `{system_id}`)")
         else:
             await ctx.message.reply(f"Created your system (unnamed) successfully! (id: `{system_id}`)")
 
@@ -337,17 +453,75 @@ class PluralKit(commands.Cog):
         await asyncRinaDB["pluralkit_data"].delete_one(OwnerData(owner_id=ctx.author.id))
         await ctx.message.reply(f"Deleted your system (id: `{system_id}`) successfully.")
 
+    @system_cmds.command(cls=CustomCommand, name="rename", usage={
+        "description":"Rename your system.",
+        "usage":"system rename <system> <new_name>",
+        "examples":["system rename mia MysticMia",
+                    "system rename wtmlo MysticMia"],
+        "parameters":{
+            "system":{
+                "description":"The id or name of your system",
+                "type": CustomCommand.template("str"),
+            },
+            "new_name":{
+                "description":"The new name for your system",
+                "type": CustomCommand.template("str", wrapped=False),
+            }
+        }
+    })
+    async def rename_system(self, ctx: commands.Context, system: str, name: str):
+        if not (owner := await check_system(ctx, system)):
+            return
+        old_name = owner["system"].get("name", "unnamed")
+        owner["system"]["name"] = name
+        await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                {"$set": {"system": owner["system"]}})
+        await ctx.message.reply(f"Renamed your system from `{safe_string(old_name)}` to `{safe_string(name)}` successfully.")
+
+    @system_cmds.command(cls=CustomCommand, name="displayname", usage={
+        "description":"Change the display name of your system.",
+        "usage":"system displayname <system> <display_name>",
+        "examples":["system displayname mia MysticMia",
+                    "system displayname wtmlo MysticMia"],
+        "parameters":{
+            "system":{
+                "description":"The id or name of your system",
+                "type": CustomCommand.template("str"),
+            },
+            "display_name":{
+                "description":"The new displayname for your system",
+                "type": CustomCommand.template("str", optional=True, wrapped=True),
+                "accepted value":"Leave blank to reset (will then use your system name or id instead of displayname)"
+            }
+        }
+    })
+    async def change_system_displayname(self, ctx: commands.Context, system: str, *display_name: str):
+        display_name = ' '.join(display_name)
+        if not (owner := await check_system(ctx, system)):
+            return
+        old_display_name = owner["system"].get("display_name", "unnamed")
+        if display_name:
+            owner["system"]["display_name"] = display_name
+            await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                    {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Changed your system's display name from **{safe_string(old_display_name)}** to **{safe_string(display_name)}** successfully.")
+        else:
+            if "display_name" in owner["system"]:
+                del owner["system"]["display_name"]
+                await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                        {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Reset your system's display name (from **{safe_string(old_display_name)}**) successfully.")
+
+
     #############################
      #     Member commands     # 
     #############################
 
-    async def member_command(self, ctx: commands.Context, name: str):
-        name = ' '.join(name)
-        await ctx.message.reply("NotImplementedError: \"This command has not been implemented yet\"")
-        try:
-            ...
-        except NotFound:
-            ...
+    async def member_command(self, ctx: commands.Context, member_str: str):
+        cmd_mention = self.client.get_command_mention("member view")
+        cmd_mention2 = self.client.get_command_mention("help")
+        await ctx.message.reply(f"Use {cmd_mention} `<member>` to see a member's information\n"
+                                f"Use {cmd_mention2} `member` to learn more about this command and its subcommands")
 
     member_cmds = CustomGroup(callback=member_command, name="member", usage={
         "description":"View or modify a member of your system",
@@ -361,6 +535,40 @@ class PluralKit(commands.Cog):
         }
     })
 
+    
+    @member_cmds.command(cls=CustomCommand, name="view", usage={
+        "description":"View a member in your system.",
+        "usage":"member view <member>",
+        "examples":"member view johnsmith",
+        "parameters":{
+            "member":{
+                "description":"The name or id of this member",
+                "type": CustomCommand.template("str"),
+            },
+        }
+    })
+    async def view_member(self, ctx: commands.Context, member_str: str):
+        if not (member := await check_member(ctx, member_str)):
+            return
+        
+        name = member.get("display_name", None)
+        if name is None:
+            name = member["name"]
+        else:
+            name += " (" + member["name"] + ")"
+        description = ""
+        for key in member:
+            if key in ["name", "id", "display_name", "created_at"]:
+                continue
+            description += f"\n**{key.capitalize()}**: {member[key].capitalize()}"
+
+        embed = CustomEmbed(title=f"viewing member '{member['id']}'", description=description.strip())
+        if member.get('colour'):
+            embed.colour = member["colour"]
+        
+        embed.add_field(name=name, value=description)
+        embed.set_footer(f"System ID: `{system['id']}`")
+        await ctx.message.reply(embed=embed)
 
     @member_cmds.command(cls=CustomCommand, name="new", usage={
         "description":"Create a new member in your system.",
@@ -414,9 +622,9 @@ class PluralKit(commands.Cog):
         system["members"] = members
 
         await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
-                                      {"$set": {"system":system}}, upsert=True)
+                                      {"$set": {"system":system}})
         if display_name:
-            await ctx.message.reply(f"Successfully added a member ({safe_string(display_name)} (`{safe_string(name)}`)) to your system! (member_id: `{member['id']}`)")
+            await ctx.message.reply(f"Successfully added a member (**{safe_string(display_name)}** (`{safe_string(name)}`)) to your system! (member_id: `{member['id']}`)")
         else:
             await ctx.message.reply(f"Successfully added a member (`{safe_string(name)}`) to your system! (member_id: `{member['id']}`)")
 
@@ -435,7 +643,7 @@ class PluralKit(commands.Cog):
         try:
             system = await get_system_from_member(ctx, id=member_id)
         except (NotFound, KeyError):
-            await ctx.message.reply("Couldn't find this member in your system!")
+            await ctx.message.reply("Couldn't find this member in your system! Make sure to give the ID of the member you want to delete (for safety purposes)")
             return
         members = system["members"]
         for member_index in range(len(members)):
@@ -443,20 +651,145 @@ class PluralKit(commands.Cog):
                 member = members[member_index]
                 del members[member_index]
         system["members"] = members
+        if "fronter" in system:
+            del system["fronter"]
         # await ctx.message.reply("The system id you provided was not the same as the system you own. Perhaps you mistyped something?\n"
         #                         f"- System id: {owner['system']['id'].lower()}\n"
         #                         f"- Given id: {system_id.lower()}")
         # return
         await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
-                                      {"$set": {"system":system["members"]}}, upsert=True)
-        await ctx.message.reply(f"Removed member (name:`{member.name}`, id: `{member_id}`) from your system successfully.")
+                                      {"$set": {"system":system}})
+        await ctx.message.reply(f"Removed member (name:`{member['name']}`, id: `{member_id}`) from your system successfully.")
+
+    ################################
+     #     Autoproxy commands     # 
+    ################################
+
+    async def autoproxy_command(self, ctx: commands.Context):
+        try:
+            system = await get_system(ctx)
+        except NotFound:
+            cmd_mention = self.client.get_command_mention("system new")
+            await ctx.message.reply(f"Make a system so you can set an autoproxy. Use {cmd_mention} to make a system")
+            return
+        if "members" not in system:
+            cmd_mention = self.client.get_command_mention("member new")
+            await ctx.message.reply(f"Add a member so you can set an autoproxy. Use {cmd_mention} to add a member to your system")
+            return
+        if "fronter" not in system:
+            cmd_mention = self.client.get_command_mention("autoproxy set")
+            await ctx.message.reply(f"Autoproxy is currently off. Use {cmd_mention} set autoproxy to a system member")    
+            return
+        cmd_mention = self.client.get_command_mention("autoproxy off")
+        await ctx.message.reply(f"Autoproxy is currently set to `{system['fronter']}`. Use {cmd_mention} reset autoproxy")    
+
+    autoproxy_cmds = CustomGroup(callback=autoproxy_command, name="autoproxy", aliases="ap", usage={
+        "description":"autoproxy something something",
+        "usage":"autoproxy [subcommand] ...",
+        "parameters":{
+            "subcommand":{
+                "description":"The type of autoproxy you want to activate",
+                "type": [CustomCommand.template("subcommand", pre_defined=True, optional=True)]
+            }
+        }
+    })
+
+    @autoproxy_cmds.command(cls=CustomCommand, name="set",usage={
+        "description":"Sets your system's autoproxy to a specific member",
+        "usage":"autoproxy set <member>",
+        "examples":"autoproxy set johnsmith",
+        "parameters":{
+            "member":{
+                "description":"The name or id of this member",
+                "type": CustomCommand.template("str"),
+            },
+        }
+    })
+    async def set_autoproxy(self, ctx: commands.Context, member_str: str):
+        try:
+            system, member = await get_system_from_member(ctx, name=member_str, id=member_str, return_member=True)
+        except NotFound:
+            await ctx.message.reply("I couldn't find that member in your system!")
+            return
+        
+        system["fronter"] = member["id"]
+        display_name = ""
+        if member.get("display_name"):
+            display_name = "**"+member["display_name"]+"**"
+        elif member.get("name"):
+            display_name = "`"+member["name"]+"`"
+        if display_name:
+            display_name += " (`"+member["id"]+"`)"
+        else:
+            display_name += member["id"]
+
+        await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                                      {"$set": {"system":system}})
+        await ctx.message.reply(f"Autoproxy set to {display_name}")
+    
+    @autoproxy_cmds.command(cls=CustomCommand, name="off",usage={
+        "description":"Turns off autoproxy",
+        "usage":"autoproxy off",
+        "examples":"autoproxy off",
+    })
+    async def unset_autoproxy(self, ctx: commands.Context):
+        try:
+            system = await get_system(ctx)
+        except NotFound:
+            await ctx.message.reply("You don't have a system, so you can't turn off any autoproxy either!")
+            return
+        
+        if system["fronter"]:
+            del system["fronter"]
+        else:
+            await ctx.message.reply(f"Autoproxy was already off :)")
+
+        await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                                      {"$set": {"system":system}})
+        await ctx.message.reply(f"Disabled autoproxy successfully")
+    
+    
 
     ############################
      #     Message Events     # 
     ############################
 
     async def on_message_pk(self, message: revolt.Message):
-        pass
+        try:
+            system = await get_system(message)
+        except NotFound:
+            return
+        if system.get("fronter"):
+            for member in system["members"]:
+                if member["id"] == system["fronter"]:
+                    break
+            else:
+                raise Exception("This shouldn't happen...") # but lets raise it anyway \o/
+            
+            attachments: list[revolt.File] = [
+                revolt.File(
+                    await file.read(),
+                    filename=file.filename, # if filename.startswith("SPOILER_"), it automatically spoilers.
+                ) for file in message.attachments
+            ]             
+
+            replies: list[revolt.MessageReply] = []
+            for reply_id in message.reply_ids:
+                for replymsg in message.replies:
+                    if replymsg.id == reply_id:
+                        replies.append(revolt.MessageReply(replymsg))
+                        break
+                else:
+                    replymsg = await message.channel.fetch_message(reply_id)
+                    revolt.MessageReply(replymsg)
+            
+            await message.delete() # done after attachments and replies because otherwise api can't fetch files
+
+            masquerade = revolt.Masquerade(name=member.get("display_name") or member["name"],
+                                           avatar=member.get("avatar") or "https://avatars.githubusercontent.com/u/57727799")
+            # avi = self.client.http.fetch_default_avatar(message.author.id)
+            await message.channel.send(content=message.content, masquerade=masquerade,replies=replies or None,
+                                       attachments=attachments or None)
 
 
 def setup(client):

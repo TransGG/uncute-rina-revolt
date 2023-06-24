@@ -126,7 +126,7 @@ class CustomEmbed(revolt.SendableEmbed):
         if name is None and value is None:
             raise ValueError("A 'name' or 'value' must be given")
         
-        if self.description == None:
+        if self.description in [None, ""]:
             self.description = ""
         else:
             self.description += "\n"
@@ -513,9 +513,9 @@ Make a custom voice channel by joining "Join to create VC" (use {m('tag')} `tag:
             command: CustomCommand
             desc = self.get_short_command_description(command)
             if 'usage' in command.usage:
-                lines.append(f"- `{group.name} {command.usage['usage']}`\n  - Description: {desc}")
+                lines.append(f"- `{command.usage['usage']}`\n  - Description: {desc}")
             else:
-                lines.append(f"- `{group.name} {command.name}`\n  - Description: {desc}")
+                lines.append(f"- `{command.name}`\n  - Description: {desc}")
         
         cmd_lines += "\n"+ "\n".join(lines)
         return cmd_lines

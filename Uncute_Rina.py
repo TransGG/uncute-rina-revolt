@@ -34,12 +34,14 @@ else:
     #   permissions:
     #       read messages (for commands)
     #       send messages (for command responses)
+    #       delete messages (for PluralKit)
+    #       attach files (for PluralKit)
     #       send embed messages (for PagedMessage)
     #       add reaction (for PagedMessage)
     #       remove (other people's) reactions (for PagedMessage, if someone reacts)
+    #       read channel history (locate a PluralKit message's replied message, for example)
     #
     #       attach files (for image of the member joining graph thing)
-    #       read channel history (locate previous starboard message, for example)
     #       move users between voice channels (custom vc)
     #       # manage roles (for adding/removing table roles) (not used currently, i guess)
     #       manage channels (Global: You need this to be able to set the position of CustomVCs in a category, apparently) NEEDS TO BE GLOBAL?
@@ -48,7 +50,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.1.1.0".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.1.2.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")

@@ -196,7 +196,7 @@ class Pronouns(commands.Cog):
         "usage":"pronouns <mode> [argument...]",
         "examples":["pronouns check",
                     "pronouns add fae/faer/faer/faers/faerself",
-                    "pronouns add :star"
+                    "pronouns add :star",
                     "pronouns remove 0",
                     "pronouns help"],
         "parameters":{
