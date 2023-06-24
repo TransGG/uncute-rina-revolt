@@ -283,7 +283,7 @@ async def check_system(ctx: commands.Context, system_name_or_id: str) -> OwnerDa
         return
     return owner
 
-async def check_member(ctx: commands.Context, member_name_or_id: str) -> Member | None:
+async def check_member(ctx: commands.Context, member_name_or_id: str, return_system=False) -> Member | tuple[Member, System] | None:
     try:
         system = await get_system_from_member(ctx, name=member_name_or_id, id=member_name_or_id)
     except NotFound:
@@ -299,7 +299,10 @@ async def check_member(ctx: commands.Context, member_name_or_id: str) -> Member 
                 break
         else:
             raise Exception("This shouldn't happen...?") # but it does help resolve 'unbound' typing check
-    return member
+    if return_system:
+        return (member, system)
+    else:
+        return member
 
 class PluralKit(commands.Cog):
     def __init__(self, client: Bot):
@@ -323,7 +326,8 @@ class PluralKit(commands.Cog):
             
             description = "" if system.get("members") else "This system has no members"
             display_name = ((system.get("display_name") or system.get("name") or "") + f" ({system['id']})").strip()
-            embed = CustomEmbed(title=f"Members of {display_name}", description=description)
+            embed = CustomEmbed(title=f"Members of {display_name}", description=description,
+                                colour=system.get("colour", None))
 
             members = 0
             pages = []
@@ -336,9 +340,9 @@ class PluralKit(commands.Cog):
 
                 description = "**ID**: `" + member["id"] + "`"
                 for key in member:
-                    if key in ["name", "id", "display_name", "created_at"]:
+                    if key in ["name", "id", "display_name", "created_at", "avatar"]:
                         continue
-                    description += f"\n**{key.capitalize()}**: {member[key].capitalize()}"
+                    description += f"\n**{key.capitalize()}**: {str(member[key]).capitalize()}"
                 
                 embed.add_field(name=name, value=description)
                 members += 1
@@ -367,6 +371,54 @@ class PluralKit(commands.Cog):
         }
     })
 
+
+    @system_cmds.command(cls=CustomCommand, name="view", usage={
+        "description":"View a system",
+        "usage":"system view <system_id>",
+        "examples":"system view xrzme",
+        "parameters":{
+            "system_id":{
+                "description":"The id of the server you want to view",
+                "type": CustomCommand.template("ID")
+            }
+        }
+    })
+    async def view_system(self, ctx: commands.Context, system_id: str):
+        try:
+            system: System = await get_system(ctx, id=system_id, owned=False)
+            
+            description = "" if system.get("members") else "This system has no members"
+            display_name = ((system.get("display_name") or system.get("name") or "") + f" ({system['id']})").strip()
+            embed = CustomEmbed(title=f"Members of {display_name}", description=description,
+                                colour=system.get("colour", None))
+
+            members = 0
+            pages = []
+            for member in system.get("members", []):
+                name = member.get("display_name", None)
+                if name is None:
+                    name = member["name"]
+                else:
+                    name += " (" + member["name"] + ")"
+
+                description = "**ID**: `" + member["id"] + "`"
+                for key in member:
+                    if key in ["name", "id", "display_name", "created_at", "avatar"]:
+                        continue
+                    description += f"\n**{key.capitalize()}**: {str(member[key]).capitalize()}"
+                
+                embed.add_field(name=name, value=description)
+                members += 1
+                if members % 3 == 0: # 3 members per page
+                    pages.append(embed)
+                    embed = CustomEmbed(title=f"Members of `{system['id']}`", description="")
+            if pages:
+                await PagedMessage(self.client, ctx, pages).send()
+            else:
+                await ctx.message.reply(embed=embed)
+                
+        except NotFound:
+            await ctx.message.reply(f"Could not find any system with id `{safe_string(system_id)}`!")
 
     @system_cmds.command(cls=CustomCommand, name="new", usage={
         "description":"Make a new system.",
@@ -434,7 +486,7 @@ class PluralKit(commands.Cog):
         "parameters":{
             "system_id":{
                 "description":"The id of your system (for safety reasons)",
-                "type": CustomCommand.template("str"),
+                "type": CustomCommand.template("ID"),
             }
         }
     })
@@ -491,7 +543,7 @@ class PluralKit(commands.Cog):
             "display_name":{
                 "description":"The new displayname for your system",
                 "type": CustomCommand.template("str", optional=True, wrapped=True),
-                "accepted value":"Leave blank to reset (will then use your system name or id instead of displayname)"
+                "accepted value":"Leave blank to reset (will then show system name or id instead of displayname)"
             }
         }
     })
@@ -511,6 +563,114 @@ class PluralKit(commands.Cog):
                 await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
                         {"$set": {"system": owner["system"]}}, upsert=True)
             await ctx.message.reply(f"Reset your system's display name (from **{safe_string(old_display_name)}**) successfully.")
+
+    @system_cmds.command(cls=CustomCommand, name="description", usage={
+        "description":"Change the description of your system.",
+        "usage":"system description <system> [description...]",
+        "examples":["system description Galaxia A cool description for this system.",
+                    "system description wtmlo Super cool description."],
+        "parameters":{
+            "system":{
+                "description":"The id or name of your system",
+                "type": CustomCommand.template("str"),
+            },
+            "description":{
+                "description":"The new description for your system",
+                "type": CustomCommand.template("str", optional=True, wrapped=True),
+                "additional info":[
+                    "Leave blank to clear",
+                    "Due to commands not allowing newlines, type [[\"\\n\"]] at the beginning of each new line if you want to add newlines"
+                ]
+            }
+        }
+    })
+    async def change_system_description(self, ctx: commands.Context, system: str, *description: str):
+        description = ' '.join(description).replace("[[\\n]]", "\n")
+        if not (owner := await check_system(ctx, system)):
+            return
+        if description:
+            owner["system"]["description"] = description
+            await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                    {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Changed your system's description successfully.")
+        else:
+            if "description" in owner["system"]:
+                del owner["system"]["description"]
+                await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                        {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Reset your system's description successfully.")
+
+    @system_cmds.command(cls=CustomCommand, name="colour", aliases=["color"], usage={
+        "description":"Change the color of your system.",
+        "usage":"system colour <system> [colour]",
+        "examples":["system colour Galaxia #044932",
+                    "system colour wtmlo #ff0088"],
+        "parameters":{
+            "system":{
+                "description":"The id or name of your system",
+                "type": CustomCommand.template("str"),
+            },
+            "colour":{
+                "description":"The new colour for your system",
+                "type": CustomCommand.template("str", optional=True, case_sensitive=False),
+                "Accepted values":"Must be a hex colour code (#000000 for black, #FFFFFF for white)",
+                "additional info":"Leave blank to clear"
+            }
+        }
+    })
+    async def change_system_colour(self, ctx: commands.Context, system: str, colour: str):
+        colour = colour.lower()
+        if not colour.startswith("#") or len(colour) != 7:
+            await ctx.message.reply("Invalid colour given! Please give a hex color code like \"#00ff00\" or \"#ffffff\"")
+        if not all([char in "0123456789abcdef" for char in colour[1:]]):
+            await ctx.message.reply("Your colour contained invalid characters! A color should only contain numbers and letters from 0-9 and a-f")
+        if not (owner := await check_system(ctx, system)):
+            return
+        
+        if colour:
+            owner["system"]["colour"] = colour
+            await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                    {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Changed your system's colour successfully.")
+        else:
+            if "colour" in owner["system"]:
+                del owner["system"]["colour"]
+                await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                        {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Reset your system's colour successfully.")
+
+    @system_cmds.command(cls=CustomCommand, name="tag", usage={
+        "description":"Change the tag of your system.",
+        "usage":"system tag <system> [tag]",
+        "examples":["system tag Galaxia 🌀",
+                    "system tag wtmlo 01H34CB442REBZGJMTZXDMJTTC",
+                    "system tag wtmlo :01H34CB442REBZGJMTZXDMJTTC:"],
+        "parameters":{
+            "system":{
+                "tag":"The id or name of your system",
+                "type": CustomCommand.template("str"),
+            },
+            "tag":{
+                "tag":"The new tag for your system",
+                "type": CustomCommand.template("emoji (or ID)", optional=True),
+            }
+        }
+    })
+    async def change_system_tag(self, ctx: commands.Context, system: str, tag: str):
+        tag = tag.replace(":", "")
+        if not (owner := await check_system(ctx, system)):
+            return
+        if tag:
+            owner["system"]["tag"] = tag
+            await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                    {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Changed your system's tag successfully.")
+        else:
+            if "tag" in owner["system"]:
+                del owner["system"]["tag"]
+                await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                        {"$set": {"system": owner["system"]}}, upsert=True)
+            await ctx.message.reply(f"Reset your system's tag successfully.")
 
 
     #############################
@@ -548,8 +708,14 @@ class PluralKit(commands.Cog):
         }
     })
     async def view_member(self, ctx: commands.Context, member_str: str):
-        if not (member := await check_member(ctx, member_str)):
+        if not (_temp := await check_member(ctx, member_str, return_system=True)):
             return
+        
+        member, system = _temp
+
+        embed = CustomEmbed(title=f"viewing member '{member['id']}'")
+        if member.get('colour'):
+            embed.colour = member["colour"]
         
         name = member.get("display_name", None)
         if name is None:
@@ -560,13 +726,9 @@ class PluralKit(commands.Cog):
         for key in member:
             if key in ["name", "id", "display_name", "created_at"]:
                 continue
-            description += f"\n**{key.capitalize()}**: {member[key].capitalize()}"
+            description += f"\n**{key.capitalize()}**: {str(member[key]).capitalize()}"
 
-        embed = CustomEmbed(title=f"viewing member '{member['id']}'", description=description.strip())
-        if member.get('colour'):
-            embed.colour = member["colour"]
-        
-        embed.add_field(name=name, value=description)
+        embed.add_field(name=name, value=description.strip() or None)
         embed.set_footer(f"System ID: `{system['id']}`")
         await ctx.message.reply(embed=embed)
 
@@ -635,7 +797,7 @@ class PluralKit(commands.Cog):
         "parameters":{
             "member_id":{
                 "description":"The id of the member you want to delete",
-                "type": CustomCommand.template("str"),
+                "type": CustomCommand.template("ID"),
             }
         }
     })
@@ -660,6 +822,115 @@ class PluralKit(commands.Cog):
         await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
                                       {"$set": {"system":system}})
         await ctx.message.reply(f"Removed member (name:`{member['name']}`, id: `{member_id}`) from your system successfully.")
+
+    @member_cmds.command(cls=CustomCommand, name="rename", usage={
+        "description":"Rename a member in your system.",
+        "usage":"member rename <member> <new_name>",
+        "examples":["member rename mia MysticMia",
+                    "member rename wtmlo MysticMia"],
+        "parameters":{
+            "member":{
+                "description":"The id or name of this member",
+                "type": CustomCommand.template("str"),
+            },
+            "new_name":{
+                "description":"The new name for this member",
+                "type": CustomCommand.template("str", wrapped=False),
+            }
+        }
+    })
+    async def rename_member(self, ctx: commands.Context, member_str: str, name: str):
+        if not (_temp := await check_member(ctx, member_str, return_system=True)):
+            return
+        member, system = _temp
+        for member_index in range(len(system["members"])):
+            if system["members"][member_index]["id"] == member["id"]:
+                break
+        else:
+            raise Exception("This shouldn't happen...")
+        
+        old_name = system["members"][member_index]["name"]
+        system["members"][member_index]["name"] = name
+        await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                {"$set": {"system": system}})
+        await ctx.message.reply(f"Renamed this member from `{safe_string(old_name)}` to `{safe_string(name)}` successfully.")
+
+    @member_cmds.command(cls=CustomCommand, name="displayname", usage={
+        "description":"Change the display name of a member in your system.",
+        "usage":"member displayname <member> [display_name]",
+        "examples":["member displayname mia MysticMia",
+                    "member displayname wtmlo MysticMia"],
+        "parameters":{
+            "member":{
+                "description":"The id or name of this member",
+                "type": CustomCommand.template("str"),
+            },
+            "display_name":{
+                "description":"The new display name for this member",
+                "type": CustomCommand.template("str", wrapped=True, optional=True),
+                "accepted value":"Leave blank to reset (will then show member name instead of displayname)"
+            }
+        }
+    })
+    async def change_member_displayname(self, ctx: commands.Context, member_str: str, *display_name: str):
+        display_name = ' '.join(display_name)
+        if not (_temp := await check_member(ctx, member_str, return_system=True)):
+            return
+        member, system = _temp
+        for member_index in range(len(system["members"])):
+            if system["members"][member_index]["id"] == member["id"]:
+                break
+        else:
+            raise Exception("This shouldn't happen...")
+        
+        old_display_name = system["members"][member_index].get("display_name", "No display name")
+        if display_name:
+            system["members"][member_index]["display_name"] = display_name
+        else:
+            del system["members"][member_index]["display_name"]
+
+        await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                {"$set": {"system": system}})
+        if display_name:
+            await ctx.message.reply(f"Changed this member's display name from **{safe_string(old_display_name)}** to **{safe_string(display_name)}** successfully.")
+        else:
+            await ctx.message.reply(f"Reset this member's display name successfully.")
+
+    @member_cmds.command(cls=CustomCommand, name="avatar", usage={
+        "description":"Change the avatar of a member in your system.",
+        "usage":"member avatar <member> [avatar_url]",
+        "examples":["member displayname mia https://imgur.com/reeee.png",
+                    "member displayname wtmlo "],
+        "parameters":{
+            "member":{
+                "description":"The id or name of this member",
+                "type": CustomCommand.template("str"),
+            },
+            "avatar_url":{
+                "description":"The new avatar for this member",
+                "type": CustomCommand.template("str", wrapped=True, optional=True),
+                "accepted value":"Leave blank to reset (will then show default avatar)"
+            }
+        }
+    })
+    async def change_member_avatar(self, ctx: commands.Context, member_str: str, avatar: str):
+        if not (_temp := await check_member(ctx, member_str, return_system=True)):
+            return
+        member, system = _temp
+        for member_index in range(len(system["members"])):
+            if system["members"][member_index]["id"] == member["id"]:
+                break
+        else:
+            raise Exception("This shouldn't happen...")
+        
+        system["members"][member_index]["avatar"] = avatar
+        await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=ctx.author.id), 
+                {"$set": {"system": system}})
+        if avatar:
+            await ctx.message.reply(f"Changed this member's avatar successfully.")
+        else:
+            await ctx.message.reply(f"Reset this member's avatar successfully.")
+
 
     ################################
      #     Autoproxy commands     # 
@@ -760,8 +1031,9 @@ class PluralKit(commands.Cog):
         except NotFound:
             return
         if system.get("fronter"):
-            for member in system["members"]:
-                if member["id"] == system["fronter"]:
+            for member_index in range(len(system["members"])):
+                if system["members"][member_index]["id"] == system["fronter"]:
+                    member = system["members"][member_index]
                     break
             else:
                 raise Exception("This shouldn't happen...") # but lets raise it anyway \o/
@@ -783,10 +1055,18 @@ class PluralKit(commands.Cog):
                     replymsg = await message.channel.fetch_message(reply_id)
                     revolt.MessageReply(replymsg)
             
-            await message.delete() # done after attachments and replies because otherwise api can't fetch files
+            await message.delete() # done after attachments and replies because otherwise api can't fetch data
 
-            masquerade = revolt.Masquerade(name=member.get("display_name") or member["name"],
+            if "tag" in system:
+                system_tag = " [" + system["tag"] + "]"
+            else:
+                system_tag = ""
+
+            masquerade = revolt.Masquerade(name=member.get("display_name") or member["name"] + system_tag,
                                            avatar=member.get("avatar") or "https://avatars.githubusercontent.com/u/57727799")
+            system["members"][member_index]["message_count"] = system["members"][member_index].get("message_count", 0) + 1
+            await asyncRinaDB["pluralkit_data"].update_one(OwnerData(owner_id=message.author.id), 
+                    {"$set": {"system": system}})
             # avi = self.client.http.fetch_default_avatar(message.author.id)
             await message.channel.send(content=message.content, masquerade=masquerade,replies=replies or None,
                                        attachments=attachments or None)

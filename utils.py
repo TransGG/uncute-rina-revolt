@@ -201,7 +201,7 @@ class CustomCommand(commands.Command):
 
         ### Parameters
         type: :class:`str`
-            one of: "word", "str", "list[str]", "list[int]", "int", "any", "mention or ID", "ID", "subcommand"
+            one of: "word", "str", "list[str]", "list[int]", "int", "mention or ID", or else
         optional: :class:`bool` | None
             Whether the command is optional (default: None)
         kwarg: :class:`str` | `None`
@@ -234,14 +234,11 @@ class CustomCommand(commands.Command):
             parts.append("list of numbers (separated by a comma)")
         elif type == "int":
             parts.append("number")
-        elif type == "any":
-            parts.append("any")
         elif type == "mention or ID":
             parts.append("mention (or ID)")
-        elif type == "ID":
-            parts.append("ID")
-        elif type == "subcommand":
-            parts.append("subcommand")
+        else:
+            parts.append(type)
+        # any, ID, subcommand, emoji
             
         
         if wrapped:
