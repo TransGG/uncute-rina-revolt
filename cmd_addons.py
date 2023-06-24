@@ -1421,35 +1421,16 @@ class OtherAddons(commands.Cog):
         # else:
         #     errors.append("- The message ID needs to be a number!")
 
-        response_api = requests.get("https://raw.githubusercontent.com/revoltchat/revite/master/src/assets/emojis.ts").text
-        emojis = {}
-        for line in response_api.splitlines():
-            if ":" in line:
-                emojis[line.split(":",1)[0].strip()] = eval(line.split(":",1)[1].replace(",",""))
-
-        def get_emoji(client: Bot, emoji_str: str):
-            emoji_str = emoji_str.replace(":","")
-            if not any([char in "abcdefghijklmnopqrstuvwxyz" for char in emoji_str]):
-                # check if all characters in the emoji_str are either numbers or uppercase letters
-                return emoji_str
-            else:
-                # return unicode emoji, maybe
-                try:
-                    return emojis[emoji_str]
-                except:
-                    return None
-
-
-        upvote_emoji = get_emoji(self.client, upvote_emoji)
+        upvote_emoji = get_emoji_raw(self.client, upvote_emoji)
         if upvote_emoji is None:
             errors.append("- I can't use this upvote emoji!")
 
-        downvote_emoji = get_emoji(self.client, downvote_emoji)
+        downvote_emoji = get_emoji_raw(self.client, downvote_emoji)
         if downvote_emoji is None:
             errors.append("- I can't use this downvote emoji!")
 
         if neutral_emoji is not None:
-            neutral_emoji = get_emoji(self.client, neutral_emoji)
+            neutral_emoji = get_emoji_raw(self.client, neutral_emoji)
             if neutral_emoji is None:
                 errors.append("- I can't use this neutral emoji!")
 
@@ -1479,6 +1460,7 @@ class OtherAddons(commands.Cog):
                 await ctx.message.reply(content=":warning: Adding emojis failed!")
         cmd_mention = self.client.get_command_mention("add_poll_reactions")
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) used {cmd_mention} on message {jump_msg(message)}")
+
 
     @commands.command(cls=CustomCommand, usage={
         "description":"Pin a message to a channel!",

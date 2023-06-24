@@ -25,8 +25,8 @@ else:
     debug(f"[##+  ]: Loading database clusters..." + " " * 30, color="light_blue", end='\r')
     cluster = MongoClient(tokens['MongoDB'])
     RinaDB = cluster["RinaRevolt"]
-    cluster = motor.AsyncIOMotorClient(tokens['MongoDB'])
-    asyncRinaDB = cluster["RinaRevolt"]
+    cluster: motor.core.AgnosticClient = motor.AsyncIOMotorClient(tokens['MongoDB'])
+    asyncRinaDB: motor.core.AgnosticDatabase = cluster["RinaRevolt"]
 
     commanderror_cooldown = 0
     debug(f"[###+ ]: Loading version..." + " " * 30, color="light_blue", end='\r')
@@ -34,6 +34,7 @@ else:
     #   permissions:
     #       read messages (for commands)
     #       send messages (for command responses)
+    #       send embed messages (for PagedMessage)
     #       add reaction (for PagedMessage)
     #       remove (other people's) reactions (for PagedMessage, if someone reacts)
     #
@@ -47,7 +48,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.1.0.1".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.1.1.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -65,7 +66,7 @@ else:
     version = '.'.join(version)
     with open("version.txt","w") as f:
         f.write(f"{version}")
-    debug(f"[#### ]: Loading Bot" + " " * 30, color="light_blue", end='\r')
+    debug(f"[####+]: Loading Bot" + " " * 30, color="light_blue", end='\r')
 
     # intents = discord.Intents.default()
     # intents.members = True #apparently this needs to be additionally defined cause it's not included in Intents.default()?
@@ -119,6 +120,7 @@ else:
         prefixes = ["!"]
         staff_server_id = "0"
         bot_owner: revolt.User # for AllowedMentions in on_appcommand_error()
+        emojis: dict[str, str] = {}
 
         # "logging.WARNING" to remove annoying 'Scheduler started' message on sched.start()
         sched = AsyncIOScheduler(logger=logging.getLogger("apscheduler").setLevel(logging.WARNING))
@@ -282,7 +284,7 @@ else:
                 try:
                     self.dispatch("command", context)
 
-                    if not await self.bot_check(context):
+                    if not await self.global_check(context):
                         raise commands.errors.CheckError(f"the global check for the command failed")
 
                     if not await context.can_run():
@@ -293,6 +295,7 @@ else:
                     return output
                 except Exception as e:
                     await command._error_handler(command.cog or self, context, e)
+                    # self.dispatch("command_error", context, e) # this was added in newest commit. Unnecessary for me here.
             else:
                 await self._on_message(message)
 
@@ -346,9 +349,14 @@ else:
             except (revolt.errors.HTTPError, revolt.errors.Forbidden, Exception): # "Exception" raised in revolt.channel.channel_factory()
                 if testing_environment == 3:
                     self.logChannel = await self.fetch_channel("01H35AM97PZW3166FDGK4FAN39")
-            
             self.bot_owner = self.get_user("01H34JM6Y9GYG5E26FX5Q2P8PW") # for mentioning me on crashes
             self.prefixes.append(self.user.mention+" ")
+            
+            response_api = requests.get("https://raw.githubusercontent.com/revoltchat/revite/master/src/assets/emojis.ts").text
+            for line in response_api.splitlines():
+                if ":" in line:
+                    self.emojis[line.split(":",1)[0].strip()] = eval(line.split(":",1)[1].replace(",",""))
+
             debug(f"[####### ]: Loaded server settings"+" "*30,color="green")
 
             await self.logChannel.send(f":white_check_mark: **Started Rina** in version {version}")
@@ -498,6 +506,7 @@ else:
                 "cmd_termdictionary",
                 "cmd_todolist",
                 "cmd_toneindicator",
+                "cmd_pluralkit",
                 # "cmdg_Reminders",
                 # "cmdg_Starboard",
                 "utils",

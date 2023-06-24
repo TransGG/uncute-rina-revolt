@@ -62,7 +62,7 @@ import logging
 progress.increment("typing/TypedDict")
 from typing import TypedDict, Optional
 progress.increment("utils")
-from utils import is_verified, is_staff, is_admin, debug, log_to_guild, executed_in_dms, safe_string, jump_msg, \
+from utils import is_verified, is_staff, is_admin, debug, log_to_guild, executed_in_dms, safe_string, jump_msg, get_emoji_raw, \
     PagedMessage, CustomEmbed, CustomGroup, CustomHelpCommand, CustomCommand
 # progress.increment("reminders")
 # from cmdg_Reminders import Reminders

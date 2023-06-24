@@ -164,7 +164,7 @@ class UsageDict(TypedDict):
 class CustomCommand(commands.Command):
     """Class for holding info about a command.
 
-    Parameters
+    ### Parameters
     ----------
     callback: Callable[..., Coroutine[Any, Any, Any]]
         The callback for the command
@@ -176,7 +176,7 @@ class CustomCommand(commands.Command):
         The parent of the command if this command is a subcommand. (default: None)
     cog (optional): :class:`Cog`
         The cog the command is apart of. (default: None)
-    usage (optional): :class:`str` | :class:`list`
+    usage (optional): :class:`str` | :class:`dict`
         The usage string for the command. (default: None)
     """
     def __init__(self, callback, name: str, aliases: list[str], usage: str | UsageDict | None = None):
@@ -201,7 +201,7 @@ class CustomCommand(commands.Command):
 
         ### Parameters
         type: :class:`str`
-            one of: "word", "str", "list[str]", "list[int]", "int", "any", "mention or ID", "ID"
+            one of: "word", "str", "list[str]", "list[int]", "int", "any", "mention or ID", "ID", "subcommand"
         optional: :class:`bool` | None
             Whether the command is optional (default: None)
         kwarg: :class:`str` | `None`
@@ -240,6 +240,8 @@ class CustomCommand(commands.Command):
             parts.append("mention (or ID)")
         elif type == "ID":
             parts.append("ID")
+        elif type == "subcommand":
+            parts.append("subcommand")
             
         
         if wrapped:
@@ -251,15 +253,39 @@ class CustomCommand(commands.Command):
         
         return ' '.join(parts)
 
-
     async def error_handler(self, ctx: commands.Context, error: Exception):
         #This should handle replying to the author and log to console.
-        ctx.client.dispatch("command_error", ctx,  error)
+        ctx.client.dispatch("command_error", ctx, error)
         # traceback.print_exception(type(error), error, error.__traceback__)
 
 class CustomGroup(commands.Group):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, callback, name: str = None, aliases: list[str] = [], usage: str|dict = None):
+        """Class for holding info about a group command.
+
+        Parameters
+        ----------
+        name: :class:`str`
+            The name of the command
+        callback: Callable[..., Coroutine[Any, Any, Any]]
+            The callback for the group command
+        aliases: list[:class:`str`]
+            The aliases of the group command
+        usage: :class:`str` | :class:`dict[str, str | dict[str, dict[str, str|list[str]]]]`
+            Command usage
+        """
+        if usage is None:
+            usage = UsageDict()
+        elif type(usage) is str:
+            usage = UsageDict({"usage":usage})
+        elif type(usage) is dict and \
+             type(usage) is not UsageDict:
+            usage = UsageDict(usage)
+        else:
+            print(type(usage))
+            raise
+        super().__init__(callback=callback, name = name or callback.__name__, aliases=aliases)
+        self.usage = usage
+        self._error_handler = type(self).error_handler
 
     def command(self, *, name = None, aliases: list[str] = None, cls = CustomCommand, usage: str | None = None):
         """A decorator that turns a function into a :class:`Command` and registers the command as a subcommand.
@@ -287,6 +313,11 @@ class CustomGroup(commands.Group):
 
         return inner
 
+    async def error_handler(self, ctx: commands.Context, error: Exception):
+        # Reply to the author and log to console
+        ctx.client.dispatch("command_error", ctx, error)
+
+
 class CustomHelpCommand(commands.help.HelpCommand):
     def get_short_command_description(self, command: CustomCommand):
         """
@@ -303,6 +334,8 @@ class CustomHelpCommand(commands.help.HelpCommand):
         second line of description, if not empty. Else
         empty string
         """
+        if "description" in command.usage:
+            return command.usage["description"]
         if desc := command.description:
             if desc := desc.split("\n")[0]:
                 # get first line of description
@@ -351,7 +384,7 @@ class CustomHelpCommand(commands.help.HelpCommand):
         # add 2-space indent
         return '\n'.join(trimmed)
 
-    async def create_bot_help(self, ctx: commands.Context, commands: dict[commands.Cog | None, list[CustomCommand]]):
+    async def create_global_help(self, ctx: commands.Context, commands: dict[commands.Cog | None, list[CustomCommand]]):
         # lines = ["```"]
         # for cog, cog_commands in commands.items():
         #     cog_lines: list[str] = []
@@ -364,27 +397,27 @@ class CustomHelpCommand(commands.help.HelpCommand):
         #     lines.append("\n".join(cog_lines))
 
         # lines.append("```")
-        c: Bot = ctx.client
+        m = ctx.client.get_command_mention
         return f"""Hi there! This bot has a whole bunch of commands. Let me introduce you to some:
-{c.get_command_mention('add_poll_reactions')}: Add an up-/downvote emoji to a message (for voting)
-{c.get_command_mention('help')}: See this help page. Use {c.get_command_mention('help')} `<command>` for more info about a command.
-###### {c.get_command_mention('compliment')}: Rina can compliment others (matching their pronoun role)
-{c.get_command_mention('convert_unit')}: Convert a value from one to another! Distance, speed, currency, etc.
-{c.get_command_mention('dictionary')}: Search for an lgbtq+-related or dictionary term!
-###### {c.get_command_mention('equaldex')}: See LGBTQ safety and rights in a country (with API)
-###### {c.get_command_mention('math')}: Ask Wolfram|Alpha for math or science help
-###### {c.get_command_mention('nameusage gettop')}: See how many people are using the same name
-{c.get_command_mention('pronouns')}: See someone's pronouns or edit your own
-###### {c.get_command_mention('qotw')} and {c.get_command_mention('developer_request')}: Suggest a Question Of The Week or Bot Suggestion to staff
-{c.get_command_mention('reminder reminders')}: Make or see your reminders
-{c.get_command_mention('roll')}: Roll some dice with a random result
-{c.get_command_mention('tag')}: Get information about some of the server's extra features
-{c.get_command_mention('todo')}: Make, add, or remove items from your to-do list
-{c.get_command_mention('toneindicator')}: Look up which tone tag/indicator matches your input (eg. /srs)
+{m('add_poll_reactions')}: Add an up-/downvote emoji to a message (for voting)
+{m('help')}: See this help page. Use {m('help')} `<command>` for more info about a command.
+###### {m('compliment')}: Rina can compliment others (matching their pronoun role)
+{m('convert_unit')}: Convert a value from one to another! Distance, speed, currency, etc.
+{m('dictionary')}: Search for an lgbtq+-related or dictionary term!
+###### {m('equaldex')}: See LGBTQ safety and rights in a country (with API)
+###### {m('math')}: Ask Wolfram|Alpha for math or science help
+###### {m('nameusage gettop')}: See how many people are using the same name
+{m('pronouns')}: See someone's pronouns or edit your own
+###### {m('qotw')} and {m('developer_request')}: Suggest a Question Of The Week or Bot Suggestion to staff
+{m('reminder reminders')}: Make or see your reminders
+{m('roll')}: Roll some dice with a random result
+{m('tag')}: Get information about some of the server's extra features
+{m('todo')}: Make, add, or remove items from your to-do list
+{m('toneindicator')}: Look up which tone tag/indicator matches your input (eg. /srs)
 
-Make a custom voice channel by joining "Join to create VC" (use {c.get_command_mention('tag')} `tag:customvc` for more info)
-{c.get_command_mention('editvc')}: edit the name or user limit of your custom voice channel
-{c.get_command_mention('vctable about')}: Learn about making your voice chat more on-topic!
+Make a custom voice channel by joining "Join to create VC" (use {m('tag')} `tag:customvc` for more info)
+{m('editvc')}: edit the name or user limit of your custom voice channel
+{m('vctable about')}: Learn about making your voice chat more on-topic!
 """
 
     async def create_command_help(self, ctx: commands.Context, command: CustomCommand):
@@ -416,22 +449,28 @@ Make a custom voice channel by joining "Join to create VC" (use {c.get_command_m
         # ### Examples
         # `!dictionary fantasy`
         # `!dictionary high heels`
-        if type(command) is not CustomCommand:
-            return "Wrong class"
+        if type(command) is not CustomCommand and type(command) is not CustomGroup:
+            return f"Wrong class (must be CustomCommand or CustomGroup, not {command.__class__})"
         lines = []
         prefix = (await ctx.client.get_prefix(ctx.message))[0]
-        lines.append(f"## {command.name.capitalize()} command")
+        if type(command) is CustomCommand:
+            lines.append(f"## '{command.name.capitalize()}' command")
+        if type(command) is CustomGroup:
+            lines.append(f"## '{command.name.capitalize()}' group command")
         usage: UsageDict = command.usage
+
         if "description" in usage:
             lines.append(usage["description"])
-            if "usage" in usage or "parameters" in usage or command.aliases or "examples" in usage:
-                lines.append("")
+
         if "usage" in usage:
+            lines.append("")
             lines.append(f"### Usage\n"
                         f"`{prefix}{usage.get('usage')}`\n"
                         f"For usage help, use !help usage.")
+
         if "parameters" in usage:
-            lines.append("\n### Parameters")
+            lines.append("")
+            lines.append("### Parameters")
             for param in usage["parameters"]:
                 lines.append(f"`{param}`")
                 for detail in usage["parameters"][param]:
@@ -445,12 +484,12 @@ Make a custom voice channel by joining "Join to create VC" (use {c.get_command_m
                     lines.append(f"---") # otherwise you get a weird indent..
         
         if command.aliases:
+            lines.append("")
             lines.append(f"### Aliases\n"
                          f"{', '.join(command.aliases)}")
-            if "examples" in usage:
-                lines.append("")
 
         if "examples" in usage:
+            lines.append("")
             if type(usage["examples"]) is str:
                 lines.append(f"### Example\n`{usage['examples']}`")
             elif type(usage["examples"]) is list:
@@ -463,22 +502,23 @@ Make a custom voice channel by joining "Join to create VC" (use {c.get_command_m
 
         return "\n".join(lines)
 
-    async def create_group_help(self, ctx: commands.Context, group: commands.Group):
-        lines = ["```"]
-        lines.append(f"{group.name}:")
-        lines.append(f"  Usage: {group.get_usage()}")
-
-        if group.aliases:
-            lines.append(f"  Aliases: {', '.join(group.aliases)}")
-
-        if group.description:
-            lines.append(group.description)
-
+    async def create_group_help(self, ctx: commands.Context, group: CustomGroup):
+        cmd_lines = await self.create_command_help(ctx, command=group)
+        lines = []
+        if group.commands:
+            lines.append("")
+            lines.append("### Subcommands")
+        
         for command in group.commands:
+            command: CustomCommand
             desc = self.get_short_command_description(command)
-            lines.append(f"  {command.name} - {desc}")
-        lines.append("```")
-        return "\n".join(lines)
+            if 'usage' in command.usage:
+                lines.append(f"- `{group.name} {command.usage['usage']}`\n  - Description: {desc}")
+            else:
+                lines.append(f"- `{group.name} {command.name}`\n  - Description: {desc}")
+        
+        cmd_lines += "\n"+ "\n".join(lines)
+        return cmd_lines
 
     async def create_cog_help(self, ctx: commands.Context, cog: commands.Cog):
         lines = ["```"]
@@ -493,20 +533,19 @@ Make a custom voice channel by joining "Join to create VC" (use {c.get_command_m
 
     async def handle_no_command_found(self, ctx: commands.Context, name: str):
         if name == "usage":
-            await ctx.message.reply(
-                "The usage layout of commands is as follows:\n"
-                "- `<argument>` is a required argument\n"
-                "- `[argument]` is an optional argument\n"
-                "- `argument=[argument]` is an optional keyword argument. To set it, use `argument=1` or `argument:1`, for example\n"
-                "- `<argument...>` is a required wrapped argument. This means that you can use this parameter without needing any "
-                "quotation marks. This and any following words will be seen as part of the same argument"
-                "- `[argument...]` is an optional wrapped argument. Identical to the one above, but this one does not need to be given (it's optional)"
-            )
-            return
-        await ctx.message.reply(f"Command `{name}` not found.")
+            return ("The usage layout of commands is as follows:\n"
+                    "- `<argument>` is a required argument\n"
+                    "- `[argument]` is an optional argument\n"
+                    "- `argument=[argument]` is an optional keyword argument. To set it, use `argument=1` or `argument:1`, for example\n"
+                    "- `<argument...>` is a required wrapped argument. This means that you can use this parameter without needing any "
+                    "quotation marks. This and any following words will be seen as part of the same argument\n"
+                    "- `[argument...]` is an optional wrapped argument. Identical to the one above, but this one does not need to be given (it's optional)\n"
+                    "- `...` is usually used in command groups, when there are sub commands that require different arguments")
+            
+        return f"Command `{name}` not found."
 
     async def handle_no_cog_found(self, ctx: commands.Context, name: str):
-        await ctx.message.reply(f"Cog `{name}` not found. (not sure when this would be called. Please ping {Bot.bot_owner.mention} so I learn :D)")
+        return f"Cog `{name}` not found. (not sure when this would be called. Please ping {Bot.bot_owner.mention} so I learn :D)"
 
 
 
@@ -785,3 +824,15 @@ def jump_msg(message: revolt.Message):
         return f"https://app.revolt.chat/server/{message.server.id}/channel/{message.channel.id}/{message.id}"
     except LookupError: # not in server
         return f"https://app.revolt.chat/channel/{message.channel.id}/{message.id}"
+
+def get_emoji_raw(client: Bot, emoji_str: str):
+    emoji_str = emoji_str.replace(":","")
+    if not any([char in "abcdefghijklmnopqrstuvwxyz" for char in emoji_str]):
+        # check if all characters in the emoji_str are either numbers or uppercase letters
+        return emoji_str
+    else:
+        # return unicode emoji, maybe
+        try:
+            return client.emojis[emoji_str]
+        except:
+            return None

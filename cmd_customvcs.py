@@ -406,8 +406,8 @@ class CustomVcs(commands.Cog):
                 await ctx.message.reply(f"No guild data found for {options[option]} in this guild!")
                 return
         if mode == 2:
-            query = {"guild_id": ctx.server_id}
             collection = RinaDB["guildInfo"]
+            query = {"guild_id": ctx.server_id}
             
             async def validate(value, error_msg):
                 # outdated function to convert input to integers, but Revolt doesn't use integers for IDs

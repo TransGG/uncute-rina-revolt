@@ -319,7 +319,7 @@ class TermDictionary(commands.Cog):
         assert len(result_str) > 0
         await ctx.send(result_str)
 
-    @commands.group(cls=CustomGroup)
+    
     async def dictionary_staff(self, ctx: commands.Context):
         """
         This is a command group. Use 'help dictionary_staff' to see how to use it.
@@ -332,6 +332,17 @@ class TermDictionary(commands.Cog):
                                 "- redefine\n"
                                 "- undefine\n"
                                 "- edit_synonym")
+        
+    dictionary_staff = CustomGroup(dictionary_staff, usage={
+        "description":"Command group to group staff commands for the custom dictionary together",
+        "usage":"dictionary_staff [subcommand] ...",
+        "parameters":{
+            "subcommand":{
+                "description":"The action you want to apply to the dictionary",
+                "type": CustomCommand.template("subcommand", pre_defined=True)
+            }
+        }
+    })
 
     @dictionary_staff.command(usage={
         "description":"Add a dictionary entry for a word!",
