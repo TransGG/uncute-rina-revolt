@@ -538,7 +538,20 @@ Make a custom voice channel by joining "Join to create VC" (use {m('tag')} `tag:
                     "quotation marks. This and any following words will be seen as part of the same argument\n"
                     "- `[argument...]` is an optional wrapped argument. Identical to the one above, but this one does not need to be given (it's optional)\n"
                     "- `...` is usually used in command groups, when there are sub commands that require different arguments")
-            
+        if name.lower() == "pluralkit":
+            cmd_mention = ctx.client.get_command_mention("system new")
+            cmd_mention2 = ctx.client.get_command_mention("member new")
+            cmd_mention3 = ctx.client.get_command_mention("autoproxy set")
+            cmd_mention4 = ctx.client.get_command_mention("help")
+            return (f"Simply said, PluralKit is a Discord bot that lets people send messages under different names and avatars\n"
+                    f"I made a simple recreation of it, for the purposes of letting people with DID, etc. create systems and members."
+                    f"Due to Revolt limitations, these messages will show up with the [BRIDGE] tag.\n"
+                    f"\n"
+                    f"To start, type {cmd_mention}. Add members with {cmd_mention2}.\n"
+                    f"Autoproxy system members with {cmd_mention3} `<member>`.\n"
+                    f"For any more help, type {cmd_mention3} `<command>`, where command is the first word of one of the previously "
+                    f"mentioned commands. Enjoy :)")
+        
         return f"Command `{name}` not found."
 
     async def handle_no_cog_found(self, ctx: commands.Context, name: str):

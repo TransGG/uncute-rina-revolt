@@ -954,7 +954,7 @@ class PluralKit(commands.Cog):
         cmd_mention = self.client.get_command_mention("autoproxy off")
         await ctx.message.reply(f"Autoproxy is currently set to `{system['fronter']}`. Use {cmd_mention} reset autoproxy")    
 
-    autoproxy_cmds = CustomGroup(callback=autoproxy_command, name="autoproxy", aliases="ap", usage={
+    autoproxy_cmds = CustomGroup(callback=autoproxy_command, name="autoproxy", aliases=["ap"], usage={
         "description":"autoproxy something something",
         "usage":"autoproxy [subcommand] ...",
         "parameters":{
