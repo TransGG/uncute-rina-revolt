@@ -528,6 +528,10 @@ Make a custom voice channel by joining "Join to create VC" (use {m('tag')} `tag:
         lines.append("```")
         return "\n".join(lines)
 
+    async def create_bot_help(self, _ctx, _commands):
+        ...
+        # a helpless attempt at resolving an AbstractMethod error thing
+
     async def handle_no_command_found(self, ctx: commands.Context, name: str):
         if name == "usage":
             return ("The usage layout of commands is as follows:\n"
