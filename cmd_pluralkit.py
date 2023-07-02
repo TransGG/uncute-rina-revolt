@@ -444,6 +444,8 @@ class PluralKit(commands.Cog):
     })
     async def new_system(self, ctx: commands.Context, name: str = None, *display_name: str):
         display_name = ' '.join(display_name)
+        if len(name) > 80 or len(display_name) > 80:
+            await ctx.message.reply("Your name and display name may only be up to 80 characters long (due to Revolt embed limitations)")
         try:
             owner = await get_owner(id=ctx.author.id)
             if owner["system"]:
@@ -522,6 +524,8 @@ class PluralKit(commands.Cog):
         }
     })
     async def rename_system(self, ctx: commands.Context, system: str, name: str):
+        if len(name) > 80:
+            await ctx.message.reply("Your system name may only be up to 80 characters long (due to Revolt embed limitations)")
         if not (owner := await check_system(ctx, system)):
             return
         old_name = owner["system"].get("name", "unnamed")
@@ -549,6 +553,8 @@ class PluralKit(commands.Cog):
     })
     async def change_system_displayname(self, ctx: commands.Context, system: str, *display_name: str):
         display_name = ' '.join(display_name)
+        if len(display_name) > 80:
+            await ctx.message.reply("Your system name may only be up to 80 characters long (due to Revolt embed limitations)")
         if not (owner := await check_system(ctx, system)):
             return
         old_display_name = owner["system"].get("display_name", "unnamed")
@@ -914,6 +920,8 @@ class PluralKit(commands.Cog):
         }
     })
     async def change_member_avatar(self, ctx: commands.Context, member_str: str, avatar: str):
+        if len(avatar) > 256:
+            await ctx.message.reply("Your avatar url only be up to 256 characters long (due to Revolt limitations)")
         if not (_temp := await check_member(ctx, member_str, return_system=True)):
             return
         member, system = _temp
@@ -931,7 +939,10 @@ class PluralKit(commands.Cog):
         else:
             await ctx.message.reply(f"Reset this member's avatar successfully.")
 
-
+    # TODO:
+    # make description max 1000 chars
+    # make pronouns max 175 chars
+    # 
     ################################
      #     Autoproxy commands     # 
     ################################

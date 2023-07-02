@@ -50,7 +50,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.1.3.3".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.1.4.0".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -74,17 +74,6 @@ else:
     # intents.members = True #apparently this needs to be additionally defined cause it's not included in Intents.default()?
     # intents.message_content = True #apparently it turned off my default intent or something: otherwise i can't send 1984, ofc.
     # #setup default discord bot client settings, permissions, slash commands, and file paths
-
-# interactions
-# mentions
-# remove_all_reactions 
-# remove_reaction 
-# replies 
-# reply 
-# reply_ids 
-# server 
-# server_id 
-# state 
 
     class Bot(commands.CommandsClient):
         def __init__(self, *args, **kwargs):
@@ -232,7 +221,10 @@ else:
         on_message_events = []
         async def _on_message(self, message):
             for i in self.on_message_events:
-                await i(message)
+                try:
+                    await i(message)
+                except Exception as ex:
+                    self.dispatch("error", ex)
 
         async def process_commands(self, message: revolt.Message):
             """
@@ -502,6 +494,7 @@ else:
                 "cmd_customvcs",
                 # "cmd_emojistats",
                 # "cmd_getmemberdata",
+                "cmd_moderation",
                 "cmd_pronouns",
                 # "cmd_qotw",
                 "cmd_tags",
