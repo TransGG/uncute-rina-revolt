@@ -3,7 +3,8 @@ from import_modules import *
 
 class Moderation(commands.Cog):
     def __init__(self, client):
-        self.staff_command_logging_channel_id = "01H35AM97PZW3166FDGK4FAN39"#"01H2Z0Q2PAFVZ2MPGSNG0Y7WF0"
+        # self.staff_command_logging_channel_id = "01H35AM97PZW3166FDGK4FAN39" # Dev server
+        self.staff_command_logging_channel_id = "01H2Z0Q2PAFVZ2MPGSNG0Y7WF0" # Main server
         self.client: Bot = client
 
     @commands.command(cls=CustomCommand, usage={
