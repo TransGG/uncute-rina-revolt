@@ -612,7 +612,7 @@ def is_staff(ctx: commands.Context):
     roles = []
     for role in ctx.server.roles:
         for name_match in ["staff", "moderator", "trial mod", "sr. mod", "chat mod"]:
-            if role.name.lower() in name_match:
+            if name_match in role.name.lower():
                 roles.append(role)
 
     user_role_ids = [role.id for role in ctx.author.roles]
@@ -806,7 +806,7 @@ async def executed_in_dms(ctx: commands.Context = None,
 
     (:class:`revolt.Message` is sent to the executor)
     """
-    assert len([i for i in [ctx, message, channel] if i is not None]) == 1, ValueError("Give an itx, message, or channel, not multiple!")
+    assert len([i for i in [ctx, message, channel] if i is not None]) == 1, ValueError("Give a ctx, message, or channel, not multiple!")
     id_object: revolt.Message | commands.Context | revolt.ServerChannel = next(i for i in [ctx, message, channel] if i is not None)
     if id_object.server_id is None:
         if type(id_object) == revolt.Message:
