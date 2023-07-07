@@ -404,6 +404,7 @@ class CustomHelpCommand(commands.help.HelpCommand):
 ###### {m('equaldex')}: See LGBTQ safety and rights in a country (with API)
 ###### {m('math')}: Ask Wolfram|Alpha for math or science help
 ###### {m('nameusage gettop')}: See how many people are using the same name
+{m('help')} `pluralkit`: Learn more about how the PluralKit-like commands and system works.
 {m('pronouns')}: See someone's pronouns or edit your own
 ###### {m('qotw')} and {m('developer_request')}: Suggest a Question Of The Week or Bot Suggestion to staff
 {m('reminder reminders')}: Make or see your reminders

@@ -38,7 +38,11 @@ class Moderation(commands.Cog):
             except revolt.errors.HTTPError as ex:
                 if ex.args[0] == 500:
                     await ctx.message.reply("Couldn't ban member! Error 500: Internal Server Error\nPerhaps this member is already banned.")
-                    return
+                if ex.args[0] == 403:
+                    await ctx.message.reply("Couldn't ban member! Error 403: Forbidden\nRina does not have permissions to ban.")
+                else:
+                    await ctx.message.reply(f"Couldn't ban member! Error {ex.args[0]}\n")
+                return
             try:
                 member = await ctx.server.fetch_member(member_id)
             except revolt.errors.HTTPError:
@@ -51,21 +55,13 @@ class Moderation(commands.Cog):
                 # curious what errors there could be while trying to send a message to the banned user
         except LookupError:
             log_channel: revolt.TextChannel = ctx.server.get_channel(self.staff_command_logging_channel_id)
-            try:
-                await log_channel.send(f":hammer: <\@{ctx.author.id}> _banned_ out-of-server user [`{member_id}`, <@{member_id}>]" +
-                                f"\n> {reason}" if reason else "\n> _(No reason given)_")
-            except LookupError:
-                # there's a crash if the bot tries to return the message with message.mentions, because it can't get
-                # member's mention if the member isn't in the server (anymore)
-                pass
+            await log_channel.send(f":hammer: <\@{ctx.author.id}> _banned_ out-of-server user [`{member_id}`, <@{member_id}>]" +
+                            f"\n> {reason}" if reason else "\n> _(No reason given)_")
             await ctx.send("Banned out-of-server user successfully")
         else:
-            log_channel: revolt.TextChannel = await ctx.server.get_channel(self.staff_command_logging_channel_id)
-            try:
-                await log_channel.send(f":hammer: <\@{ctx.author.id}> _banned_ {member.original_name}#{member.discriminator} [`{member.id}`, <@{member.id}>]" +
-                                f"\n> {reason}" if reason else "\n> _(No reason given)_")
-            except LookupError:
-                pass
+            log_channel: revolt.TextChannel = ctx.server.get_channel(self.staff_command_logging_channel_id)
+            await log_channel.send(f":hammer: <\@{ctx.author.id}> _banned_ {member.original_name}#{member.discriminator} [`{member.id}`, <@{member.id}>]" +
+                            f"\n> {reason}" if reason else "\n> _(No reason given)_")
             await ctx.send("Member banned successfully")
 
     @commands.command(cls=CustomCommand, usage={
@@ -104,10 +100,7 @@ class Moderation(commands.Cog):
                 # member's mention if the member isn't in the server (anymore)
                 pass
         else:
-            try:
-                await log_channel.send(f":cloud: <\@{ctx.author.id}> _unbanned_ {member.original_name}#{member.discriminator} [`{member.id}`, <@{member.id}>]")
-            except LookupError:
-                pass
+            await log_channel.send(f":cloud: <\@{ctx.author.id}> _unbanned_ {member.original_name}#{member.discriminator} [`{member.id}`, <@{member.id}>]")
         await ctx.send("Unbanned user successfully")
 
 def setup(client):
