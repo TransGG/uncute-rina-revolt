@@ -50,7 +50,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.1.4.3".split(".")#"1.2.0.7".split(".")
+    fileVersion = "0.1.4.4".split(".")#"1.2.0.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -102,6 +102,11 @@ else:
             """
             super().__init__(*args, **kwargs)
 
+        class CustomInteraction:
+            def __init__(self, **kwargs):
+                for kwarg in kwargs:
+                    self.__setattr__(kwarg, kwargs)
+
         commandList: list[discord.app_commands.AppCommand]
         logChannel: revolt.TextChannel
         api_tokens = tokens
@@ -116,7 +121,6 @@ else:
         # "logging.WARNING" to remove annoying 'Scheduler started' message on sched.start()
         sched = AsyncIOScheduler(logger=logging.getLogger("apscheduler").setLevel(logging.WARNING))
         sched.start()
-
 
         # Class functions
 

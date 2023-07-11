@@ -601,7 +601,7 @@ def is_staff(ctx: commands.Context):
     ### Parameters
     ---------------
     ctx: :class:`commands.Context`
-        context with ctx.server.roles and itx.author.roles
+        context with ctx.server.roles and ctx.author.roles
     
     ### Returns
     -----------
@@ -628,7 +628,7 @@ def is_admin(ctx: commands.Context):
     ### Parameters
     ---------------
     ctx: :class:`discord.Interaction`
-        interaction with itx.guild.roles and itx.user
+        interaction with itx.server.roles and itx.author
     
     ### Returns
     -----------
@@ -647,7 +647,7 @@ def is_admin(ctx: commands.Context):
                 roles.append(role)
     user_role_ids = [role.id for role in ctx.author.roles]
     role_ids = ["981735525784358962"]  # TransPlace: Admin
-    member_perms = ctx.author.get_channel_permissions(ctx.channel)
+    member_perms = ctx.author.get_permissions(ctx.server)
     has_admin = member_perms.manage_server and member_perms.manage_channel
     return has_admin or \
            len(set(roles).intersection(ctx.author.roles)) > 0 or \
