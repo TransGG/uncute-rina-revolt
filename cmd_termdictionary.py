@@ -291,7 +291,7 @@ class TermDictionary(commands.Cog):
             else:
                 pages = []
                 for result in data:
-                    embed = CustomEmbed(color="816C6C",
+                    embed = CustomEmbed(color="#816C6C",
                                         title=f"jump",
                                         url=result['permalink'])
                     embed.add_field(name=f"__{result['word'].capitalize()}__", value=result['definition'])

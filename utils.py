@@ -148,6 +148,8 @@ class CustomEmbed(revolt.SendableEmbed):
             else:
                 self.description += "\n\n"
             self.description += f"##### {self.footer}"
+        if not self.colour.startswith("#"):
+            self.colour = "#" + self.colour
         return super().to_dict()
     
     def copy(self):
