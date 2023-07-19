@@ -39,7 +39,10 @@ class Moderation(commands.Cog):
                 if is_staff(custom_ctx):
                     await ctx.message.reply("You can't ban staff members. That's kinda sus you know...")
                     return
-            except revolt.errors.HTTPError:
+            except (revolt.errors.HTTPError, NameError): 
+                # NameError from module because server.fetch_member uses Member() without importing it.
+                # Can't fix it on my own for now because of circular references and I don't feel like finding a fix for it.
+                # Hard to test without banning many people, too...
                 member = ctx.server.get_member(member_id)
             try:
                 # send them a message before the user is banned.
