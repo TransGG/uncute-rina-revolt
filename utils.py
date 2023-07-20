@@ -649,7 +649,7 @@ def is_admin(ctx: commands.Context):
                 roles.append(role)
     user_role_ids = [role.id for role in ctx.author.roles]
     role_ids = ["981735525784358962"]  # TransPlace: Admin
-    member_perms = ctx.author.get_permissions(ctx.server)
+    member_perms = ctx.author.get_permissions()
     has_admin = member_perms.manage_server and member_perms.manage_channel
     return has_admin or \
            len(set(roles).intersection(ctx.author.roles)) > 0 or \

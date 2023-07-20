@@ -762,6 +762,7 @@ class OtherAddons(commands.Cog):
         if not is_staff(ctx):
             await ctx.message.reply("Hi. sorry.. It would be too powerful to let you very cool person use this command.")
             return
+        print(type(self), repr(self), str(self), dir(self))
         text = ' '.join(text)
         if text == "":
             await ctx.client.dispatch("command_error", ctx, RuntimeError)

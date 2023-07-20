@@ -46,6 +46,7 @@ class TermDictionary(commands.Cog):
         source: :class:`int`
             Where do you want to search? Online? Custom Dictionary? Or just leave it default..
         """
+        print(type(self), repr(self), str(self), dir(self))
         class SourceError(ValueError):
             pass
         try:
@@ -319,8 +320,8 @@ class TermDictionary(commands.Cog):
         assert len(result_str) > 0
         await ctx.send(result_str)
 
-    
-    async def dictionary_staff(self, ctx: commands.Context):
+
+    async def _dictionary_staff(self, ctx: commands.Context):
         """
         This is a command group. Use 'help dictionary_staff' to see how to use it.
         Run sub-commands like so:
@@ -333,7 +334,7 @@ class TermDictionary(commands.Cog):
                                 "- undefine\n"
                                 "- edit_synonym")
         
-    dictionary_staff = CustomGroup(dictionary_staff, usage={
+    dictionary_staff = CustomGroup(_dictionary_staff, usage={
         "description":"Command group to group staff commands for the custom dictionary together",
         "usage":"dictionary_staff [subcommand] ...",
         "parameters":{
@@ -367,6 +368,7 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't add words to the dictionary without staff roles!")
             return
+        print(type(self), repr(self), str(self), dir(self))
         def simplify(q):
             if type(q) is str:
                 return q.lower().translate(del_separators_table)
@@ -421,6 +423,7 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't add words to the dictionary without staff roles!")
             return
+        print(type(self), repr(self), str(self), dir(self))
         collection = RinaDB["termDictionary"]
         query = {"term": term}
         search = collection.find_one(query)
@@ -451,6 +454,7 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't remove words to the dictionary without staff roles!")
             return
+        print(type(self), repr(self), str(self), dir(self))
         collection = RinaDB["termDictionary"]
         query = {"term": term}
         search = collection.find_one(query)
