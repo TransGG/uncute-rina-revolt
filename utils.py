@@ -308,6 +308,10 @@ class CustomGroup(commands.Group):
             command = cls(func, name or func.__name__, aliases or [], usage=usage)
             command.parent = self
             self.subcommands[command.name] = command
+
+            for alias in command.aliases:
+                self.subcommands[alias] = command
+
             return command
 
         return inner

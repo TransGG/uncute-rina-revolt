@@ -46,7 +46,7 @@ class TermDictionary(commands.Cog):
         source: :class:`int`
             Where do you want to search? Online? Custom Dictionary? Or just leave it default..
         """
-        print(type(self), repr(self), str(self), dir(self))
+        print("cog commands:", self._cog_commands)
         class SourceError(ValueError):
             pass
         try:
@@ -321,7 +321,7 @@ class TermDictionary(commands.Cog):
         await ctx.send(result_str)
 
 
-    async def _dictionary_staff(self, ctx: commands.Context):
+    async def dictionary_staff(self, ctx: commands.Context):
         """
         This is a command group. Use 'help dictionary_staff' to see how to use it.
         Run sub-commands like so:
@@ -334,7 +334,7 @@ class TermDictionary(commands.Cog):
                                 "- undefine\n"
                                 "- edit_synonym")
         
-    dictionary_staff = CustomGroup(_dictionary_staff, usage={
+    _dictionary_staff = CustomGroup(dictionary_staff, usage={
         "description":"Command group to group staff commands for the custom dictionary together",
         "usage":"dictionary_staff [subcommand] ...",
         "parameters":{
@@ -345,7 +345,7 @@ class TermDictionary(commands.Cog):
         }
     })
 
-    @dictionary_staff.command(usage={
+    @_dictionary_staff.command(usage={
         "description":"Add a dictionary entry for a word!",
         "usage":"dictionary_staff define \"<term>\" \"<definition>\" \"[synonym1], [synonym2], [...]\"",
         "examples":"dictionary_staff define \"Hormone Replacement Therapy\" \"is for hormones\" \"HRT, Estrogen, Testosterone\"",
@@ -368,7 +368,8 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't add words to the dictionary without staff roles!")
             return
-        print(type(self), repr(self), str(self), dir(self))
+        if type(self) == Bot:
+            self.client = self
         def simplify(q):
             if type(q) is str:
                 return q.lower().translate(del_separators_table)
@@ -404,7 +405,7 @@ class TermDictionary(commands.Cog):
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) added the dictionary definition of '{safe_string(term)}' and set it to '{definition}', with synonyms: {synonyms}")
         await ctx.send(warnings+f"Successfully added '{safe_string(term)}' to the dictionary (with synonyms: {synonyms}): {definition}")
 
-    @dictionary_staff.command(cls=CustomCommand, usage={
+    @_dictionary_staff.command(cls=CustomCommand, usage={
         "description":"Edit a dictionary entry for a word!",
         "usage":"dictionary_staff redefine \"<term>\" \"<definition>\"",
         "examples":"dictionary_staff redefine \"Hormone Replacement Therapy\" \"Something good for happiness\"",
@@ -423,7 +424,8 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't add words to the dictionary without staff roles!")
             return
-        print(type(self), repr(self), str(self), dir(self))
+        if type(self) == Bot:
+            self.client = self
         collection = RinaDB["termDictionary"]
         query = {"term": term}
         search = collection.find_one(query)
@@ -436,7 +438,7 @@ class TermDictionary(commands.Cog):
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) changed the dictionary definition of '{safe_string(term)}' to '{definition}'")
         await ctx.send(f"Successfully redefined '{safe_string(term)}'")
 
-    @dictionary_staff.command(cls=CustomCommand, usage={
+    @_dictionary_staff.command(cls=CustomCommand, usage={
         "description":"Remove a dictionary entry for a word!",
         "usage":"dictionary_staff undefine \"<term>\"",
         "examples":[
@@ -454,7 +456,8 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't remove words to the dictionary without staff roles!")
             return
-        print(type(self), repr(self), str(self), dir(self))
+        if type(self) == Bot:
+            self.client = self
         collection = RinaDB["termDictionary"]
         query = {"term": term}
         search = collection.find_one(query)
@@ -464,10 +467,9 @@ class TermDictionary(commands.Cog):
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) undefined the dictionary definition of '{safe_string(term)}' from '{search['definition']}' with synonyms: {search['synonyms']}")
         collection.delete_one(query)
 
-
         await ctx.send(f"Successfully undefined '{safe_string(term)}'")
 
-    @dictionary_staff.command(cls=CustomCommand, usage={
+    @_dictionary_staff.command(cls=CustomCommand, usage={
         "description":"Add or remove a synonym to/from a previously defined word!",
         "usage":"dictionary_staff edit_synonym \"<term>\" <mode> \"<synonym>\"",
         "examples":[
@@ -495,6 +497,8 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't add synonyms to the dictionary without staff roles")
             return
+        if type(self) == Bot:
+            self.client = self
         if (mode := mode.lower()) not in ["add", "remove"]:
             await ctx.send("You can't add synonyms to the dictionary without staff roles")
             return

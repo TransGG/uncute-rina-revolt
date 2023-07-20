@@ -50,7 +50,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.1.4.8".split(".")#"1.2.2.7".split(".")
+    fileVersion = "0.1.4.9".split(".")#"1.2.2.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
@@ -119,7 +119,7 @@ else:
         emojis: dict[str, str] = {}
 
         # "logging.WARNING" to remove annoying 'Scheduler started' message on sched.start()
-        sched = AsyncIOScheduler(logger=logging.getLogger("apscheduler").setLevel(logging.DEBUG))
+        sched = AsyncIOScheduler(logger=logging.getLogger("apscheduler").setLevel(logging.WARNING))
         sched.start()
 
         # Class functions
@@ -488,7 +488,7 @@ else:
     async def main(token):
         async with revolt.utils.client_session() as session:
             start = datetime.now()
-            logging.getLogger("revolt").setLevel(logging.DEBUG)
+            logging.getLogger("revolt").setLevel(logging.WARNING)
             client = Bot(session=session, token=token, help_command=CustomHelpCommand())
             client.on_message_events.append(client.on_message_kill_test)
             debug(f"[##      ]: Started Bot"+" "*30,color="green")
