@@ -210,7 +210,7 @@ class Reminders(commands.GroupCog,name="reminder"):
                 cmd_mention = self.client.get_command_mention("reminder reminders")
                 cmd_mention1 = self.client.get_command_mention("reminder remove")
                 await itx.response.send_message(f"Please don't make more than 50 reminders. Use {cmd_mention} to see "
-                                                f"your reminders, and use {cmd_mention1} `item: ` to remove a reminder",ephemeral=True)
+                                                f"your reminders, and use {cmd_mention1} `<item>` to remove a reminder",ephemeral=True)
                 return
         except KeyError:
             pass
@@ -371,7 +371,7 @@ class Reminders(commands.GroupCog,name="reminder"):
                         out.append(f"`{index}` | <t:{reminder['remindertime']}:F>")
                         index += 1
                     cmd_mention = self.client.get_command_mention("reminder reminders")
-                    outMsg = f"You have {len(db_data['reminders'])} reminders (use {cmd_mention} `item: ` to get more info about a reminder):\n"+'\n'.join(out)[:1996]
+                    outMsg = f"You have {len(db_data['reminders'])} reminders (use {cmd_mention} `<item>` to get more info about a reminder):\n"+'\n'.join(out)[:1996]
                 await itx.response.send_message(outMsg,ephemeral=True)
             else:
                 reminder = db_data['reminders'][item]

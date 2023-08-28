@@ -45,7 +45,7 @@ class Pronouns(commands.Cog):
             pronouns = data['pronouns']
         if len(pronouns) == 0:
             cmd_mention = self.client.get_command_mention("pronouns")
-            warning = f"\nThis person hasn't added custom pronouns yet! (They need to use {cmd_mention} `mode:Add` `argument:<pronoun>` to add one)"
+            warning = f"\nThis person hasn't added custom pronouns yet! (They need to use {cmd_mention} `Add` `<pronoun>` to add one)"
 
         list = []
         for pronoun in pronouns:
@@ -77,7 +77,7 @@ class Pronouns(commands.Cog):
         if len(list) == 0:
             cmd_mention = self.client.get_command_mention("pronouns")
             await ctx.message.reply(f"This person doesn't have any pronoun roles and hasn't added any custom pronouns. Ask them to "
-                                    f"add a role in #self-roles, or to use {cmd_mention} `mode:Add` `argument:<pronoun>`\nThey might "
+                                    f"add a role in #self-roles, or to use {cmd_mention} `Add` `<pronoun>`\nThey might "
                                     f"also have pronouns mentioned in their About Me.. I can't see that sadly, so you'd have to check yourself.")
         else:
             await ctx.message.reply(f"{user.nickname or user.name} ({user.id}) uses these pronouns:\n" + '\n'.join(list)+warning)
@@ -270,8 +270,8 @@ class Pronouns(commands.Cog):
             pronouns.append(pronoun)
             collection.update_one(query, {"$set": {f"pronouns": pronouns}}, upsert=True)
             cmd_mention = self.client.get_command_mention("pronouns")
-            await ctx.message.reply(warning + f"Successfully added `{pronoun}`. Use {cmd_mention} `mode:Check` to see your custom pronouns, and use "
-                                              f"{cmd_mention} `mode:Remove` `argument:pronoun` to remove one")
+            await ctx.message.reply(warning + f"Successfully added `{pronoun}`. Use {cmd_mention} `Check` to see your custom pronouns, and use "
+                                              f"{cmd_mention} `Remove` `<pronoun>` to remove one")
         elif mode == "remove": # Remove
             collection = RinaDB["members"]
             query = {"member_id": ctx.author.id}
@@ -279,12 +279,12 @@ class Pronouns(commands.Cog):
             if data is None:
                 # see if this user already has data, if not, add empty
                 cmd_mention = self.client.get_command_mention("pronouns")
-                await ctx.message.reply(f"You haven't added pronouns yet! Use {cmd_mention} `mode:Add` `argument:<pronoun>` to add one!")
+                await ctx.message.reply(f"You haven't added pronouns yet! Use {cmd_mention} `Add` `<pronoun>` to add one!")
                 return
 
             if argument is None:
                 cmd_mention = self.client.get_command_mention("pronouns")
-                await ctx.message.reply(f"You can remove pronouns with this command. Check the pronouns you have with the {cmd_mention} `mode:Check` command."
+                await ctx.message.reply(f"You can remove pronouns with this command. Check the pronouns you have with the {cmd_mention} `Check` command."
                                         f"If you have a pronoun you want to remove, write the pronoun in the 'argument' section of the command.")
                 return
             pronoun = argument
@@ -299,22 +299,22 @@ class Pronouns(commands.Cog):
                         if data is None:
                             # see if this user already has data, if not, add empty
                             cmd_mention = self.client.get_command_mention("pronouns")
-                            await ctx.message.reply(f"This person hasn't added pronouns yet! Tell them to use {cmd_mention} `mode:Add` `argument:<pronoun>` "
+                            await ctx.message.reply(f"This person hasn't added pronouns yet! Tell them to use {cmd_mention} `Add` `<pronoun>` "
                                                     f"to add one!")
                             return
                         pronouns = data['pronouns']
                         del pronouns[int(pronoun) - 1]
                     except ValueError:
                         cmd_mention = self.client.get_command_mention("pronouns")
-                        await ctx.message.reply(f"If you are staff, and wanna remove a pronoun, then type `argument:USERID | PronounYouWannaRemove` "
-                                                f"like {cmd_mention} `mode:Remove` `argument:4491185284728472 | 1`\nThe pronoun/item you wanna remove "
+                        await ctx.message.reply(f"If you are staff, and wanna remove a pronoun, then type argument:`USERID | PronounYouWannaRemove` "
+                                                f"like {cmd_mention} `Remove` `4491185284728472 | 1`\nThe pronoun/item you wanna remove "
                                                 f"will be in order of the pronouns, starting at 1 at the top. So if someone has 3 pronouns and you "
                                                 f"wanna remove the second one, type '2'.")
                         return
                 else:
                     cmd_mention = self.client.get_command_mention("pronouns")
                     await ctx.message.reply(f"You haven't added this pronoun yet, so I can't really remove it either! "
-                                            f"Use {cmd_mention} `mode:Add` `argument:<pronoun>` to add one, or {cmd_mention} `mode:Check` "
+                                            f"Use {cmd_mention} `Add` `<pronoun>` to add one, or {cmd_mention} `Check` "
                                             f"to see what pronouns you have added")
                     return
             else:
@@ -325,11 +325,11 @@ class Pronouns(commands.Cog):
             cmd_mention = self.client.get_command_mention("pronouns")
             await ctx.message.reply(f"There are multiple ways to get a user's pronouns. The simplest of all is clicking their role. "
                                     f"However, sometimes the selection of roles is not enough to tell others your pronouns. In that "
-                                    f"case, you can use {cmd_mention} `mode:Check` to see their pronouns.\n"
+                                    f"case, you can use {cmd_mention} `Check` to see their pronouns.\n"
                                     f"\n"
-                                    f"When adding a pronoun (using {cmd_mention} `mode:Add`), it will autocomplete potential pronoun "
+                                    f"When adding a pronoun (using {cmd_mention} `Add`), it will autocomplete potential pronoun "
                                     f"combinations.\n"
-                                    f"Removing added pronouns (using {cmd_mention} `mode:Remove`) is made easy by the autocompletion "
+                                    f"Removing added pronouns (using {cmd_mention} `Remove`) is made easy by the autocompletion "
                                     f"of your already-added pronouns.\n"
                                     f"\n"
                                     f"You can also use the context menu buttons on users or messages to see the message author's "

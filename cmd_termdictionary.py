@@ -320,7 +320,16 @@ class TermDictionary(commands.Cog):
         assert len(result_str) > 0
         await ctx.send(result_str)
 
-
+    @custom_group(usage={
+        "description":"Command group to group staff commands for the custom dictionary together",
+        "usage":"dictionary_staff [subcommand] ...",
+        "parameters":{
+            "subcommand":{
+                "description":"The action you want to apply to the dictionary",
+                "type": CustomCommand.template("subcommand", pre_defined=True)
+            }
+        }
+    })
     async def dictionary_staff(self, ctx: commands.Context):
         """
         This is a command group. Use 'help dictionary_staff' to see how to use it.
@@ -333,19 +342,8 @@ class TermDictionary(commands.Cog):
                                 "- redefine\n"
                                 "- undefine\n"
                                 "- edit_synonym")
-        
-    _dictionary_staff = CustomGroup(dictionary_staff, usage={
-        "description":"Command group to group staff commands for the custom dictionary together",
-        "usage":"dictionary_staff [subcommand] ...",
-        "parameters":{
-            "subcommand":{
-                "description":"The action you want to apply to the dictionary",
-                "type": CustomCommand.template("subcommand", pre_defined=True)
-            }
-        }
-    })
 
-    @_dictionary_staff.command(usage={
+    @dictionary_staff.command(usage={
         "description":"Add a dictionary entry for a word!",
         "usage":"dictionary_staff define \"<term>\" \"<definition>\" \"[synonym1], [synonym2], [...]\"",
         "examples":"dictionary_staff define \"Hormone Replacement Therapy\" \"is for hormones\" \"HRT, Estrogen, Testosterone\"",
@@ -405,7 +403,7 @@ class TermDictionary(commands.Cog):
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) added the dictionary definition of '{safe_string(term)}' and set it to '{definition}', with synonyms: {synonyms}")
         await ctx.send(warnings+f"Successfully added '{safe_string(term)}' to the dictionary (with synonyms: {synonyms}): {definition}")
 
-    @_dictionary_staff.command(cls=CustomCommand, usage={
+    @dictionary_staff.command(cls=CustomCommand, usage={
         "description":"Edit a dictionary entry for a word!",
         "usage":"dictionary_staff redefine \"<term>\" \"<definition>\"",
         "examples":"dictionary_staff redefine \"Hormone Replacement Therapy\" \"Something good for happiness\"",
@@ -438,7 +436,7 @@ class TermDictionary(commands.Cog):
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) changed the dictionary definition of '{safe_string(term)}' to '{definition}'")
         await ctx.send(f"Successfully redefined '{safe_string(term)}'")
 
-    @_dictionary_staff.command(cls=CustomCommand, usage={
+    @dictionary_staff.command(cls=CustomCommand, usage={
         "description":"Remove a dictionary entry for a word!",
         "usage":"dictionary_staff undefine \"<term>\"",
         "examples":[
@@ -456,20 +454,20 @@ class TermDictionary(commands.Cog):
         if not is_staff(ctx):
             await ctx.send("You can't remove words to the dictionary without staff roles!")
             return
-        if type(self) == Bot:
-            self.client = self
         collection = RinaDB["termDictionary"]
         query = {"term": term}
         search = collection.find_one(query)
         if search is None:
             await ctx.send("This term hasn't been added to the dictionary yet, and thus cannot be undefined!")
             return
+        if type(self) == Bot:
+            self.client = self
         await log_to_guild(self.client, ctx.server, f"{ctx.author.name} ({ctx.author.id}) undefined the dictionary definition of '{safe_string(term)}' from '{search['definition']}' with synonyms: {search['synonyms']}")
         collection.delete_one(query)
 
         await ctx.send(f"Successfully undefined '{safe_string(term)}'")
 
-    @_dictionary_staff.command(cls=CustomCommand, usage={
+    @dictionary_staff.command(cls=CustomCommand, usage={
         "description":"Add or remove a synonym to/from a previously defined word!",
         "usage":"dictionary_staff edit_synonym \"<term>\" <mode> \"<synonym>\"",
         "examples":[

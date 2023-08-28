@@ -769,7 +769,7 @@ class OtherAddons(commands.Cog):
         cmd_mention = self.client.get_command_mention("editguildinfo")
         vc_log = await self.client.get_guild_info(ctx.server, "vcLog", log=[
             ctx, "Couldn't send your message. You can't send messages in this server because the bot setup seems incomplete\n"
-            f"Use {cmd_mention} `mode:11` to fix this!"])
+            f"Use {cmd_mention} `11` to fix this!"])
         try:
             # vcLog      = guild["vcLog"]
             log_channel = ctx.server.get_channel(vc_log)

@@ -45,9 +45,9 @@ class TodoList(commands.Cog):
             if todo is None:
                 cmd_mention = self.client.get_command_mention("todo")
                 await ctx.message.reply(f"This command lets you add items to your to-do list!\n"
-                                        f"Type whatever you still plan to do in the `todo: ` argument, "
+                                        f"Type whatever you still plan to do in the `<todo>` argument, "
                                         f"and then you can see your current to-do list with {cmd_mention} "
-                                        f"`mode:Check`!")
+                                        f"`Check`!")
                 return
             if len(todo) > 500:
                 await ctx.message.reply("I.. don't think having such a big to-do message is gonna be very helpful..")
@@ -66,9 +66,9 @@ class TodoList(commands.Cog):
             if todo is None:
                 cmd_mention = self.client.get_command_mention("todo")
                 await ctx.message.reply(f"Removing todo's with this command is done with IDs. You can see your current list "
-                                        f"of todo's using {cmd_mention} `mode:Check`. \n"
+                                        f"of todo's using {cmd_mention} `Check`. \n"
                                         f"This list will start every todo-list item with a number. This is the ID you're "
-                                        f"looking for. This number can be filled into the `todo: ` argument to remove it.")
+                                        f"looking for. This number can be filled into the `<todo>` argument to remove it.")
                 return
             try:
                 todo = int(todo)
@@ -87,7 +87,7 @@ class TodoList(commands.Cog):
                 del list[todo]
             except IndexError:
                 cmd_mention = self.client.get_command_mention("todo")
-                await ctx.message.reply(f"Couldn't delete that ID, because there isn't any item on your list with that ID.. Use {cmd_mention} `mode:Check` to see the IDs assigned to each item on your list")
+                await ctx.message.reply(f"Couldn't delete that ID, because there isn't any item on your list with that ID.. Use {cmd_mention} `Check` to see the IDs assigned to each item on your list")
                 return
             collection.update_one(query, {"$set":{f"list":list}}, upsert=True)
             await ctx.message.reply(f"Successfully removed '{todo}' from your to-do list. Your list now contains {len(list)} item{'s'*(len(list)!=1)}.")

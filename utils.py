@@ -320,6 +320,27 @@ class CustomGroup(commands.Group):
         # Reply to the author and log to console
         ctx.client.dispatch("command_error", ctx, error)
 
+def custom_group(*, name: Optional[str] = None, aliases: Optional[list[str]] = None, usage: UsageDict = None):
+    """A decorator that turns a function into a :class:`CustomGroup`
+
+    Parameters
+    -----------
+    name: Optional[:class:`str`]
+        The name of the group command, this defaults to the functions name
+    aliases: Optional[list[:class:`str`]]
+        The aliases of the group command, defaults to no aliases
+    cls: type[:class:`CustomGroup`]
+        The class used for creating the command, this defaults to :class:`CustomGroup`
+
+    Returns
+    --------
+    Callable[Callable[..., Coroutine], :class:`CustomGroup`]
+        A function that takes the command callback and returns a :class:`CustomGroup`
+    """
+    def inner(func):
+        return CustomGroup(func, name or func.__name__, aliases or [], usage)
+    
+    return inner
 
 class CustomHelpCommand(commands.help.HelpCommand):
     def get_short_command_description(self, command: CustomCommand):
@@ -419,7 +440,7 @@ class CustomHelpCommand(commands.help.HelpCommand):
 {m('todo')}: Make, add, or remove items from your to-do list
 {m('toneindicator')}: Look up which tone tag/indicator matches your input (eg. /srs)
 
-Make a custom voice channel by joining "Join to create VC" (use {m('tag')} `tag:customvc` for more info)
+Make a custom voice channel by joining "Join to create VC" (use {m('tag')} `customvc` for more info)
 {m('editvc')}: edit the name or user limit of your custom voice channel
 {m('vctable about')}: Learn about making your voice chat more on-topic!
 """

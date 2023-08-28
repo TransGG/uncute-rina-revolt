@@ -317,7 +317,19 @@ class PluralKit(commands.Cog):
      #     System commands     # 
     #############################
 
-    async def system_command(self, ctx: commands.Context):
+
+    @custom_group(name="system", usage={
+        "description":"View or modify your system",
+        "usage":"system [subcommand] ...",
+        "parameters":{
+            "subcommand":{
+                "description":"The modification you want to apply",
+                "type": CustomCommand.template("subcommand", pre_defined=True, optional=True),
+                # "accepted values":"\"new\""
+            }
+        }
+    })
+    async def system_cmds(self, ctx: commands.Context):
         try:
             owner: OwnerData = await get_owner(ctx)
             system = owner["system"]
@@ -358,19 +370,6 @@ class PluralKit(commands.Cog):
             cmd_mention = self.client.get_command_mention("system new")
             await ctx.message.reply(f"You do not have a system registered. To create one, use {cmd_mention}.")
             return
-
-    system_cmds = CustomGroup(callback=system_command, name="system", usage={
-        "description":"View or modify your system",
-        "usage":"system [subcommand] ...",
-        "parameters":{
-            "subcommand":{
-                "description":"The modification you want to apply",
-                "type": CustomCommand.template("subcommand", pre_defined=True, optional=True),
-                # "accepted values":"\"new\""
-            }
-        }
-    })
-
 
     @system_cmds.command(cls=CustomCommand, name="view", usage={
         "description":"View a system",
@@ -683,13 +682,7 @@ class PluralKit(commands.Cog):
      #     Member commands     # 
     #############################
 
-    async def member_command(self, ctx: commands.Context, member_str: str):
-        cmd_mention = self.client.get_command_mention("member view")
-        cmd_mention2 = self.client.get_command_mention("help")
-        await ctx.message.reply(f"Use {cmd_mention} `<member>` to see a member's information\n"
-                                f"Use {cmd_mention2} `member` to learn more about this command and its subcommands")
-
-    member_cmds = CustomGroup(callback=member_command, name="member", usage={
+    @custom_group(name="member", usage={
         "description":"View or modify a member of your system",
         "usage":"member [subcommand or name] ...",
         "parameters":{
@@ -699,9 +692,13 @@ class PluralKit(commands.Cog):
                          CustomCommand.template("str")]
             }
         }
-    })
-
-    
+    })    
+    async def member_cmds(self, ctx: commands.Context, member_str: str):
+        cmd_mention = self.client.get_command_mention("member view")
+        cmd_mention2 = self.client.get_command_mention("help")
+        await ctx.message.reply(f"Use {cmd_mention} `<member>` to see a member's information\n"
+                                f"Use {cmd_mention2} `member` to learn more about this command and its subcommands")
+        
     @member_cmds.command(cls=CustomCommand, name="view", usage={
         "description":"View a member in your system.",
         "usage":"member view <member>",
@@ -947,7 +944,18 @@ class PluralKit(commands.Cog):
      #     Autoproxy commands     # 
     ################################
 
-    async def autoproxy_command(self, ctx: commands.Context):
+
+    @custom_group(name="autoproxy", aliases=["ap"], usage={
+        "description":"autoproxy something something",
+        "usage":"autoproxy [subcommand] ...",
+        "parameters":{
+            "subcommand":{
+                "description":"The type of autoproxy you want to activate",
+                "type": [CustomCommand.template("subcommand", pre_defined=True, optional=True)]
+            }
+        }
+    })
+    async def autoproxy_cmds(self, ctx: commands.Context):
         try:
             system = await get_system(ctx)
         except NotFound:
@@ -964,17 +972,6 @@ class PluralKit(commands.Cog):
             return
         cmd_mention = self.client.get_command_mention("autoproxy off")
         await ctx.message.reply(f"Autoproxy is currently set to `{system['fronter']}`. Use {cmd_mention} reset autoproxy")    
-
-    autoproxy_cmds = CustomGroup(callback=autoproxy_command, name="autoproxy", aliases=["ap"], usage={
-        "description":"autoproxy something something",
-        "usage":"autoproxy [subcommand] ...",
-        "parameters":{
-            "subcommand":{
-                "description":"The type of autoproxy you want to activate",
-                "type": [CustomCommand.template("subcommand", pre_defined=True, optional=True)]
-            }
-        }
-    })
 
     @autoproxy_cmds.command(cls=CustomCommand, name="set",usage={
         "description":"Sets your system's autoproxy to a specific member",
