@@ -46,10 +46,12 @@ class TermDictionary(commands.Cog):
         source: :class:`int`
             Where do you want to search? Online? Custom Dictionary? Or just leave it default..
         """
-        print("cog commands:", self._cog_commands)
+        
         class SourceError(ValueError):
             pass
         try:
+            if len(term) == 0:
+                return ctx.client.dispatch("command_error", ctx, RuntimeError)
             if term[0].startswith("source="):
                 if len(term) > 1:
                     source = term[0]

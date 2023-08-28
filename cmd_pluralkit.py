@@ -436,7 +436,7 @@ class PluralKit(commands.Cog):
             },
             "display_name":{
                 "description":"The name of your new system",
-                "type": CustomCommand.template("str", wrapped=True),
+                "type": CustomCommand.template("str", optional=True, wrapped=True),
                 "note":"If you want a display name, you also have to give `name` a value, due to the way command input is read."
             }
         }

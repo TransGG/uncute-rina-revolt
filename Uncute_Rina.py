@@ -50,7 +50,7 @@ else:
     #       use (external) emojis (for starboard, if you have external starboard reaction...?)
 
     # dumb code for cool version updates
-    fileVersion = "0.1.4.10".split(".")#"1.2.2.7".split(".")
+    fileVersion = "0.1.4.11".split(".")#"1.2.2.7".split(".")
     try:
         with open("version.txt", "r") as f:
             version = f.read().split(".")
