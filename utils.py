@@ -193,7 +193,7 @@ class CustomCommand(commands.Command):
         else:
             print(type(usage))
             raise
-        super().__init__(callback, name, aliases, usage)
+        super().__init__(callback, name, aliases=aliases, usage=usage)
         self._error_handler = type(self).error_handler
     
     @staticmethod
